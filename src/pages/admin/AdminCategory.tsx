@@ -44,7 +44,7 @@ export default function AdminCategory() {
   // Form fields
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [parentId, setParentId] = useState("");
+  const [parentId, setParentId] = useState("none");
   const [sortOrder, setSortOrder] = useState("0");
   const [isActive, setIsActive] = useState(true);
   const [image, setImage] = useState("");
@@ -70,23 +70,25 @@ export default function AdminCategory() {
   const resetForm = () => {
     setName("");
     setDescription("");
-    setParentId("");
+    setParentId("none");
     setSortOrder("0");
     setIsActive(true);
     setImage("");
   };
+
 
   // ===================== HANDLE EDIT ======================
   const openEdit = (item: any) => {
     setEditItem(item);
     setName(item.name);
     setDescription(item.description || "");
-    setParentId(item.parentId || "");
+    setParentId(item.parentId || "none");
     setSortOrder(String(item.sortOrder ?? "0"));
     setIsActive(item.isActive);
     setImage(item.image || "");
     setOpen(true);
   };
+
 
   // ===================== UPLOAD IMAGE ======================
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,11 +115,12 @@ export default function AdminCategory() {
     const body = {
       name,
       description,
-      parentId: parentId || null,
+      parentId: parentId === "none" ? null : parentId,
       sortOrder: Number(sortOrder),
       isActive,
       image,
     };
+    
 
     try {
       if (editItem) {
@@ -282,11 +285,10 @@ export default function AdminCategory() {
 
                       <td className="px-4 py-3 text-center">
                         <span
-                          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
-                            c.isActive
+                          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${c.isActive
                               ? "bg-success/10 text-success"
                               : "bg-destructive/10 text-destructive"
-                          }`}
+                            }`}
                         >
                           {c.isActive ? "Đang hiển thị" : "Đã ẩn"}
                         </span>
@@ -369,7 +371,7 @@ export default function AdminCategory() {
                     <SelectValue placeholder="Không có danh mục cha" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Không có danh mục cha</SelectItem>
+                    <SelectItem value="none">Không có danh mục cha</SelectItem>
                     {categories
                       .filter((ct) => !ct.parentId)
                       .map((c) => (
@@ -379,6 +381,7 @@ export default function AdminCategory() {
                       ))}
                   </SelectContent>
                 </Select>
+
               </div>
 
               <div className="space-y-2">
