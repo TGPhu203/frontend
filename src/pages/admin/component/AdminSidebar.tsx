@@ -7,20 +7,28 @@ import {
     Wrench,
     Settings,
     Menu,
-    X
+    X,
+    Shield,
+    BarChart2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import path from "path";
 
 const menuItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+    { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
     { icon: Package, label: "Sản phẩm", path: "/admin/adminProduct" },
     { icon: Package, label: "Danh mục", path: "/admin/adminCategory" },
-    { icon: ShoppingCart, label: "Đơn hàng", path: "/orders" },
-    { icon: Users, label: "Khách hàng", path: "/customers" },
-    { icon: Wrench, label: "Dịch vụ kỹ thuật", path: "/services" },
-    { icon: Settings, label: "Cài đặt", path: "/settings" },
+    { icon: ShoppingCart, label: "Đơn hàng", path: "/admin/adminCart" },
+    { icon: Users, label: "Khách hàng", path: "/admin/adminCustomer" },
+    { icon: Wrench, label: "Dịch vụ kỹ thuật", path: "/admin/adminWarrantyPackages" },
+
+    { icon: Wrench, label: "Yêu cầu kỹ thuật", path: "/admin/repair-requests" },
+    { icon: Shield, label: "BH theo sản phẩm", path: "/admin/adminProductWarranty" },
+    { icon: BarChart2, label: "Thống kê doanh thu", path: "/admin/revenue" },
+    { icon: Settings, label: "Cài đặt", path: "/admin/adminAttributeGroups" },
+
 ];
 
 export const AdminSidebar = () => {

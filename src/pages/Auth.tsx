@@ -36,11 +36,11 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      const data = await login(signinEmail, signinPassword);
+      const res = await login(signinEmail, signinPassword);
 
-      const user = data.user;
-      const token = data.token;
-
+      // res === json.data từ backend
+      const user = res.user;
+      const token = res.token;
       localStorage.setItem(
         "user",
         JSON.stringify({
@@ -48,9 +48,12 @@ const Auth = () => {
           email: user.email,
           fullName: user.fullName,
           role: user.role,
-          token,
+          token: token,   // lấy từ res.token
         })
       );
+
+
+
 
       toast.success("Đăng nhập thành công");
 
@@ -63,6 +66,9 @@ const Auth = () => {
       setIsLoading(false);
     }
   };
+
+
+
 
   /* =====================================================
      💠 HANDLE REGISTER
@@ -90,7 +96,7 @@ const Auth = () => {
 
       toast.success("Đăng ký thành công! Kiểm tra email xác thực.");
 
-      navigate("/auth");
+      navigate("/");
     } catch (error: any) {
       toast.error(error.message || "Không thể đăng ký");
     } finally {

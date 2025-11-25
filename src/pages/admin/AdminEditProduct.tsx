@@ -16,11 +16,10 @@ interface Props {
 }
 
 export const AdminEditProduct = ({ open, onClose, onSubmit, defaultValue }: Props) => {
-  // --- STATES CƠ BẢN ---
   const [name, setName] = useState("");
   const [price, setPrice] = useState<any>("");
   const [compareAtPrice, setCompareAtPrice] = useState<any>("");
-  const [stock, setStock] = useState<any>("");
+  const [stockQuantity, setStockQuantity] = useState<any>("");
 
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
@@ -29,15 +28,10 @@ export const AdminEditProduct = ({ open, onClose, onSubmit, defaultValue }: Prop
   const [status, setStatus] = useState("active");
 
   const [seoKeywords, setSeoKeywords] = useState("");
-
-  // --- IMAGES ---
   const [images, setImages] = useState<string[]>([]);
-
-  // --- CATEGORY ---
   const [allCategories, setAllCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
 
-  // LOAD CATEGORY LIST
   useEffect(() => {
     (async () => {
       try {
@@ -49,13 +43,14 @@ export const AdminEditProduct = ({ open, onClose, onSubmit, defaultValue }: Prop
     })();
   }, []);
 
-  // LOAD DATA EDIT
   useEffect(() => {
     if (defaultValue) {
       setName(defaultValue.name || "");
       setPrice(defaultValue.price || "");
       setCompareAtPrice(defaultValue.compareAtPrice || "");
-      setStock(defaultValue.stock || "");
+
+      // *** FIX QUAN TRỌNG ***
+      setStockQuantity(defaultValue.stockQuantity || "");
 
       setShortDescription(defaultValue.shortDescription || "");
       setDescription(defaultValue.description || "");
@@ -64,16 +59,13 @@ export const AdminEditProduct = ({ open, onClose, onSubmit, defaultValue }: Prop
       setStatus(defaultValue.status || "active");
 
       setSeoKeywords(defaultValue.searchKeywords?.join(", ") || "");
-
       setImages(defaultValue.images || []);
-
-      // categories: backend trả mảng -> lấy category đầu tiên
       setSelectedCategory(defaultValue.categories?.[0]?._id || "");
     } else {
       setName("");
       setPrice("");
-      setStock("");
       setCompareAtPrice("");
+      setStockQuantity("");
       setShortDescription("");
       setDescription("");
       setFeatured(false);
@@ -84,7 +76,6 @@ export const AdminEditProduct = ({ open, onClose, onSubmit, defaultValue }: Prop
     }
   }, [defaultValue]);
 
-  // UPLOAD ẢNH
   const handleUpload = async (e: any) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -98,13 +89,8 @@ export const AdminEditProduct = ({ open, onClose, onSubmit, defaultValue }: Prop
     }
   };
 
-  // REMOVE IMAGE
-  const removeImage = (img: string) =>
-    setImages((prev) => prev.filter((i) => i !== img));
-
-  // SUBMIT
   const handleSubmit = () => {
-    if (!name || !price || !stock || !shortDescription || !description) {
+    if (!name || !price || !stockQuantity || !shortDescription || !description) {
       toast.error("Vui lòng nhập đầy đủ thông tin!");
       return;
     }
@@ -113,7 +99,10 @@ export const AdminEditProduct = ({ open, onClose, onSubmit, defaultValue }: Prop
       name,
       price: Number(price),
       compareAtPrice: compareAtPrice ? Number(compareAtPrice) : null,
-      stock: Number(stock),
+
+      // *** FIX QUAN TRỌNG ***
+      stockQuantity: Number(stockQuantity),
+
       shortDescription,
       description,
       featured,
@@ -135,33 +124,19 @@ export const AdminEditProduct = ({ open, onClose, onSubmit, defaultValue }: Prop
 
         <div className="grid grid-cols-2 gap-4 mt-4">
           <Input placeholder="Tên sản phẩm" value={name} onChange={(e) => setName(e.target.value)} />
-
           <Input placeholder="Giá" type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <Input placeholder="Giá cũ" type="number" value={compareAtPrice} onChange={(e) => setCompareAtPrice(e.target.value)} />
 
-          <Input
-            placeholder="Giá cũ (tuỳ chọn)"
-            type="number"
-            value={compareAtPrice}
-            onChange={(e) => setCompareAtPrice(e.target.value)}
-          />
+          {/* FIX: STOCK -> STOCK QUANTITY */}
+          <Input placeholder="Kho hàng" type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)} />
 
-          <Input placeholder="Kho" type="number" value={stock} onChange={(e) => setStock(e.target.value)} />
-
-          {/* CATEGORY */}
-          <select
-            className="border rounded p-2"
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-          >
+          <select className="border rounded p-2" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
             <option value="">-- Chọn danh mục --</option>
             {allCategories.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.name}
-              </option>
+              <option key={c._id} value={c._id}>{c.name}</option>
             ))}
           </select>
 
-          {/* STATUS */}
           <select className="border rounded p-2" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="active">Đang bán</option>
             <option value="inactive">Ngừng bán</option>
@@ -173,41 +148,18 @@ export const AdminEditProduct = ({ open, onClose, onSubmit, defaultValue }: Prop
           </div>
         </div>
 
-        <Textarea
-          className="mt-3"
-          placeholder="Mô tả ngắn..."
-          value={shortDescription}
-          onChange={(e) => setShortDescription(e.target.value)}
-        />
+        <Textarea className="mt-3" placeholder="Mô tả ngắn..." value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} />
+        <Textarea className="mt-3 h-32" placeholder="Mô tả chi tiết..." value={description} onChange={(e) => setDescription(e.target.value)} />
 
-        <Textarea
-          className="mt-3 h-32"
-          placeholder="Mô tả chi tiết..."
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
+        <Input className="mt-3" placeholder="Từ khoá SEO" value={seoKeywords} onChange={(e) => setSeoKeywords(e.target.value)} />
 
-        <Input
-          className="mt-3"
-          placeholder="Từ khoá SEO (vd: laptop, gaming...)"
-          value={seoKeywords}
-          onChange={(e) => setSeoKeywords(e.target.value)}
-        />
-
-        {/* UPLOAD & PREVIEW */}
         <div className="mt-4 space-y-2">
           <Input type="file" accept="image/*" onChange={handleUpload} />
-
           <div className="flex gap-3 flex-wrap">
             {images.map((img, i) => (
               <div key={i} className="relative">
                 <img src={img} className="w-20 h-20 rounded object-cover border" />
-                <button
-                  onClick={() => removeImage(img)}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full px-2"
-                >
-                  x
-                </button>
+                <button onClick={() => removeImage(img)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full px-2">x</button>
               </div>
             ))}
           </div>

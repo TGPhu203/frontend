@@ -4,6 +4,7 @@ const BASE_URL = "http://localhost:8888/api/auth";
 export async function login(email: string, password: string) {
   const res = await fetch(`${BASE_URL}/login`, {
     method: "POST",
+    credentials: "include",   // 🔥 QUAN TRỌNG
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
@@ -14,18 +15,15 @@ export async function login(email: string, password: string) {
     throw new Error(json.message || "Đăng nhập thất bại");
   }
 
-  return json.data; // <- trả đúng data
+  return json.data;
 }
 
+
 /* ================= REGISTER ================= */
-export async function register(data: {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-}) {
+export async function register(data) {
   const res = await fetch(`${BASE_URL}/register`, {
     method: "POST",
+    credentials: "include",   // 🔥 thêm dòng này
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
@@ -38,3 +36,4 @@ export async function register(data: {
 
   return json.data;
 }
+

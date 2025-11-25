@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Link, useNavigate } from "react-router-dom";
-
+import { getWishlist } from "@/api/wishlistApi";
+import { useEffect, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -16,7 +17,16 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const Header = () => {
   const navigate = useNavigate();
+  const [wishlistCount, setWishlistCount] = useState(0);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await getWishlist();
+        setWishlistCount(data.length);
+      } catch { }
+    })();
+  }, []);
   const getUser = () => {
     try {
       const raw = localStorage.getItem("user");
@@ -74,10 +84,10 @@ const Header = () => {
             </div>
 
             {/* wishlist */}
-            <Button variant="ghost" size="icon" className="relative">
+            <Button variant="ghost" size="icon" className="relative" onClick={() => navigate("/wishlist")}>
               <Heart className="h-5 w-5" />
               <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-accent">
-                0
+                {wishlistCount}
               </Badge>
             </Button>
 
@@ -128,10 +138,21 @@ const Header = () => {
 
                     <DropdownMenuSeparator />
 
+                    {/* Hồ sơ */}
                     <DropdownMenuItem onClick={() => navigate("/profile")}>
                       Hồ sơ cá nhân
                     </DropdownMenuItem>
 
+              
+
+                    {/* Danh sách đơn hàng */}
+                    <DropdownMenuItem onClick={() => navigate("/my-orders")}>
+                      Đơn hàng của tôi
+                    </DropdownMenuItem>
+
+
+
+                    {/* Admin only */}
                     {user.role === "admin" && (
                       <DropdownMenuItem onClick={() => navigate("/admin")}>
                         Trang quản trị
@@ -140,10 +161,15 @@ const Header = () => {
 
                     <DropdownMenuSeparator />
 
-                    <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                    {/* Logout */}
+                    <DropdownMenuItem
+                      onClick={handleLogout}
+                      className="text-red-600"
+                    >
                       Đăng xuất
                     </DropdownMenuItem>
                   </DropdownMenuContent>
+
                 </DropdownMenu>
               </>
             )}

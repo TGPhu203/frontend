@@ -1,4 +1,5 @@
 const BASE = "http://localhost:8888/api/categories";
+export const BASE_ORIGIN = "http://localhost:8888";
 
 const token = () => JSON.parse(localStorage.getItem("user") || "{}")?.token;
 

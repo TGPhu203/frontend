@@ -1,84 +1,120 @@
-import { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { ArrowDownRight, ArrowUpRight, type LucideIcon } from "lucide-react";
 
-interface StatCardProps {
+export type StatCardVariant = "primary" | "success" | "default";
+
+export interface StatCardProps {
   title: string;
-  value: string | number;
-  change?: string;
+  value: string;
+  change: string;
   icon: LucideIcon;
   trend?: "up" | "down";
-  variant?: "default" | "success" | "warning" | "primary";
+  variant?: StatCardVariant;
+  loading?: boolean;
 }
 
-export const StatCard = ({ 
-  title, 
-  value, 
-  change, 
-  icon: Icon, 
-  trend,
-  variant = "default" 
+export const StatCard = ({
+  title,
+  value,
+  change,
+  icon: Icon,
+  trend = "up",
+  variant = "default",
+  loading = false,
 }: StatCardProps) => {
-  const variants = {
-    default: "bg-card",
-    success: "bg-gradient-success",
-    warning: "bg-gradient-to-br from-warning/10 to-warning/5",
-    primary: "bg-gradient-primary",
+  // màu tổng thể theo variant
+  const baseClasses =
+    "relative overflow-hidden rounded-2xl transition-transform duration-200 hover:-translate-y-0.5";
+
+  const variantClasses: Record<StatCardVariant, string> = {
+    primary:
+      "border-0 shadow-lg bg-gradient-to-r from-primary to-indigo-500 text-primary-foreground",
+    success:
+      "border-0 shadow-lg bg-gradient-to-r from-success to-emerald-500 text-success-foreground",
+    default:
+      "border border-border bg-card text-card-foreground shadow-sm",
   };
 
-  const iconVariants = {
-    default: "text-primary",
-    success: "text-success-foreground",
-    warning: "text-warning",
-    primary: "text-primary-foreground",
+  // màu icon nền tròn
+  const iconWrapperClasses: Record<StatCardVariant, string> = {
+    primary: "bg-white/20 text-primary-foreground",
+    success: "bg-white/25 text-success-foreground",
+    default: "bg-primary/10 text-primary",
   };
 
-  const textVariants = {
-    default: "text-card-foreground",
-    success: "text-success-foreground",
-    warning: "text-card-foreground",
-    primary: "text-primary-foreground",
+  // màu dòng change
+  const changeTextClasses: Record<StatCardVariant, string> = {
+    primary: "text-primary-foreground/80",
+    success: "text-success-foreground/80",
+    default:
+      trend === "up"
+        ? "text-success"
+        : trend === "down"
+        ? "text-destructive"
+        : "text-muted-foreground",
   };
+
+  if (loading) {
+    return (
+      <Card
+        className={`${baseClasses} ${variantClasses[variant]} animate-pulse`}
+      >
+        <div className="p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="h-4 w-24 rounded-full bg-white/30 md:bg-muted" />
+            <div
+              className={`h-9 w-9 rounded-xl ${
+                variant === "default" ? "bg-muted" : "bg-white/25"
+              }`}
+            />
+          </div>
+          <div className="h-7 w-20 rounded-full bg-white/40 md:bg-muted" />
+          <div className="h-3 w-32 rounded-full bg-white/30 md:bg-muted" />
+        </div>
+      </Card>
+    );
+  }
 
   return (
-    <Card className={cn(
-      "p-6 transition-all duration-300 hover:shadow-lg border-0",
-      variants[variant]
-    )}>
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className={cn(
-            "text-sm font-medium mb-1 opacity-80",
-            textVariants[variant]
-          )}>
-            {title}
-          </p>
-          <p className={cn(
-            "text-3xl font-bold mb-2",
-            textVariants[variant]
-          )}>
-            {value}
-          </p>
-          {change && (
-            <p className={cn(
-              "text-sm flex items-center gap-1",
-              trend === "up" ? "text-success" : trend === "down" ? "text-destructive" : "",
-              variant === "success" || variant === "primary" ? "text-white/90" : ""
-            )}>
-              {trend === "up" && "↑"}
-              {trend === "down" && "↓"}
-              {change}
+    <Card className={`${baseClasses} ${variantClasses[variant]}`}>
+      {/* hiệu ứng sáng nhẹ khi là gradient */}
+      {(variant === "primary" || variant === "success") && (
+        <div className="pointer-events-none absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top,_#fff_0,_transparent_55%)]" />
+      )}
+
+      <div className="relative p-5 flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide opacity-80">
+              {title}
             </p>
-          )}
+          </div>
+          <div
+            className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconWrapperClasses[variant]}`}
+          >
+            <Icon className="h-5 w-5" />
+          </div>
         </div>
-        <div className={cn(
-          "h-12 w-12 rounded-lg flex items-center justify-center",
-          variant === "default" && "bg-primary/10",
-          variant === "success" && "bg-success-foreground/20",
-          variant === "warning" && "bg-warning/20",
-          variant === "primary" && "bg-primary-foreground/20"
-        )}>
-          <Icon className={cn("h-6 w-6", iconVariants[variant])} />
+
+        <div className="space-y-1">
+          <p className="text-3xl font-semibold leading-tight">{value}</p>
+          <div className="flex items-center gap-1 text-xs">
+            {trend === "up" && (
+              <ArrowUpRight
+                className={`h-4 w-4 ${
+                  variant === "default" ? "text-success" : "text-white"
+                }`}
+              />
+            )}
+            {trend === "down" && (
+              <ArrowDownRight
+                className={`h-4 w-4 ${
+                  variant === "default" ? "text-destructive" : "text-white"
+                }`}
+              />
+            )}
+            <span className={changeTextClasses[variant]}>{change}</span>
+          </div>
         </div>
       </div>
     </Card>
