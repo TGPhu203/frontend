@@ -5,8 +5,10 @@ import { AdminLayout } from "./AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Eye, Mail, Phone, RefreshCw } from "lucide-react";
+import { Search, Eye, Mail, Phone, RefreshCw, Unlock, Lock } from "lucide-react";
 import { toast } from "sonner";
+
+type LoyaltyTier = "none" | "silver" | "gold" | "diamond";
 
 type Customer = {
   _id: string;
@@ -16,12 +18,92 @@ type Customer = {
   phone?: string;
   orderCount?: number;
   totalSpent?: number;
+  loyaltyTier?: LoyaltyTier;
+  loyaltyPoints?: number;
+  isBlocked?: boolean;
+};
+
+// tính bậc dựa trên tổng chi tiêu (fallback khi backend chưa set)
+const getTierFromSpent = (spent: number): LoyaltyTier => {
+  if (spent >= 50_000_000) return "diamond";
+  if (spent >= 20_000_000) return "gold";
+  if (spent >= 5_000_000) return "silver";
+  return "none";
+};
+
+// mapping bậc → label + màu + % ưu đãi (hiển thị)
+const getTierDisplay = (tier: LoyaltyTier) => {
+  switch (tier) {
+    case "silver":
+      return {
+        label: "Thành viên Bạc",
+        discountPercent: 2,
+        badgeClass: "bg-slate-100 text-slate-800 border border-slate-200",
+      };
+    case "gold":
+      return {
+        label: "Thành viên Vàng",
+        discountPercent: 5,
+        badgeClass: "bg-amber-100 text-amber-900 border border-amber-200",
+      };
+    case "diamond":
+      return {
+        label: "Thành viên Kim cương",
+        discountPercent: 10,
+        badgeClass: "bg-sky-100 text-sky-900 border border-sky-200",
+      };
+    default:
+      return {
+        label: "Chưa xếp hạng",
+        discountPercent: 0,
+        badgeClass: "bg-muted text-muted-foreground border border-border",
+      };
+  }
 };
 
 const AdminCustomer = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const handleToggleBlock = async (customer: Customer) => {
+    if (!customer._id) return;
+
+    const action = customer.isBlocked ? "unblock" : "block";
+    const confirmText = customer.isBlocked
+      ? "Bạn có chắc muốn mở khóa tài khoản này?"
+      : "Bạn có chắc muốn khóa tài khoản này?";
+
+    if (!window.confirm(confirmText)) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:8888/api/admin/users/${customer._id}/${action}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+        }
+      );
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.message || "Không thể cập nhật trạng thái tài khoản");
+      }
+
+      setCustomers((prev) =>
+        prev.map((c) =>
+          c._id === customer._id ? { ...c, isBlocked: !customer.isBlocked } : c
+        )
+      );
+
+      toast.success(
+        customer.isBlocked
+          ? "Đã mở khóa tài khoản khách hàng"
+          : "Đã khóa tài khoản khách hàng"
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Lỗi khi cập nhật trạng thái tài khoản");
+    }
+  };
 
   const loadCustomers = async () => {
     try {
@@ -42,14 +124,28 @@ const AdminCustomer = () => {
       if (Array.isArray(json)) {
         data = json;
       } else if (Array.isArray(json.data)) {
-        data = json.data;
+        data = json.data;       // 👈 đúng với { status: 'success', data: [...] }
       } else if (Array.isArray(json.users)) {
         data = json.users;
       } else {
         data = [];
       }
 
-      setCustomers(data);
+      const mapped: Customer[] = (data as any[]).map((c) => ({
+        _id: c._id,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        email: c.email,
+        phone: c.phone,
+        orderCount: c.orderCount,
+        totalSpent: c.totalSpent,
+        loyaltyTier: c.loyaltyTier ?? "none",
+        loyaltyPoints: c.loyaltyPoints ?? 0,
+        isBlocked: !!c.isBlocked,   // 👈 thêm
+      }));
+
+
+      setCustomers(mapped);
     } catch (err: any) {
       toast.error(err.message || "Lỗi khi tải danh sách khách hàng");
       setCustomers([]);
@@ -96,16 +192,11 @@ const AdminCustomer = () => {
         {/* Header */}
         <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary mb-2">
-              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-              Khách hàng hệ thống
-            </div>
+
             <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
               Quản lý khách hàng
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Danh sách khách hàng, thông tin liên hệ và thống kê đơn hàng cơ bản.
-            </p>
+
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -155,29 +246,38 @@ const AdminCustomer = () => {
                     Liên hệ
                   </th>
                   <th className="px-6 py-3 text-left font-medium">
-                    Số đơn
+                    Hạng / Ưu đãi
                   </th>
+                  <th className="px-6 py-3 text-left font-medium">Số đơn</th>
                   <th className="px-6 py-3 text-left font-medium">
                     Tổng chi tiêu
                   </th>
-                  <th className="px-6 py-3 text-right font-medium">
-                    Thao tác
-                  </th>
-                </tr>
+                  <th className="px-6 py-3 text-left font-medium">
+                    Trạng thái / Thao tác
+                  </th>                </tr>
               </thead>
 
               <tbody className="divide-y divide-border">
                 {filtered.map((customer) => {
                   const fullName =
-                    `${customer.firstName || ""} ${
-                      customer.lastName || ""
-                    }`.trim() || customer.email;
+                    `${customer.firstName || ""} ${customer.lastName || ""
+                      }`.trim() || customer.email;
                   const initial =
                     fullName
                       .split(" ")
                       .slice(-1)[0]
                       ?.charAt(0)
                       .toUpperCase() || "?";
+
+                  // nếu backend đã có loyaltyTier khác "none" thì dùng, ngược lại tự tính theo totalSpent
+                  // trong AdminCustomer, bên trong map(filtered.map(...))
+                  const spent = customer.totalSpent ?? 0;
+
+                  // Luôn tính hạng theo tổng chi tiêu, KHÔNG dùng loyaltyTier từ backend
+                  const tier: LoyaltyTier = getTierFromSpent(spent);
+
+                  const { label, discountPercent, badgeClass } = getTierDisplay(tier);
+
 
                   return (
                     <tr
@@ -218,6 +318,27 @@ const AdminCustomer = () => {
                       </td>
 
                       <td className="px-6 py-4">
+                        <div className="space-y-1">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${badgeClass}`}
+                          >
+                            {label}
+                          </span>
+                          <p className="text-xs text-muted-foreground">
+                            {discountPercent > 0
+                              ? `Ưu đãi: giảm ${discountPercent}% trên đơn hàng`
+                              : "Chưa có ưu đãi tích lũy"}
+                          </p>
+                          {customer.loyaltyPoints != null &&
+                            customer.loyaltyPoints > 0 && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Điểm tích lũy: {customer.loyaltyPoints}
+                              </p>
+                            )}
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
                         <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                           {(customer.orderCount ?? 0).toString()} đơn
                         </span>
@@ -228,16 +349,43 @@ const AdminCustomer = () => {
                       </td>
 
                       <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full"
+                        <div className="flex flex-col items-end gap-1">
+                          {/* Trạng thái khóa */}
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${customer.isBlocked
+                                ? "bg-red-100 text-red-700 border border-red-200"
+                                : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                              }`}
                           >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                            {customer.isBlocked ? "Đã khóa" : "Đang hoạt động"}
+                          </span>
+
+                          {/* Nút thao tác */}
+                          <div className="flex items-center gap-1 mt-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-full"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                              variant={customer.isBlocked ? "outline" : "destructive"}
+                              size="icon"
+                              className="h-8 w-8 rounded-full"
+                              onClick={() => handleToggleBlock(customer)}
+                            >
+                              {customer.isBlocked ? (
+                                <Unlock className="h-4 w-4" />
+                              ) : (
+                                <Lock className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       </td>
+
                     </tr>
                   );
                 })}
@@ -245,7 +393,7 @@ const AdminCustomer = () => {
                 {filtered.length === 0 && (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="px-6 py-6 text-center text-sm text-muted-foreground"
                     >
                       Không tìm thấy khách hàng nào

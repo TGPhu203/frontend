@@ -82,12 +82,15 @@ export default function AdminCategory() {
     setEditItem(item);
     setName(item.name);
     setDescription(item.description || "");
-    setParentId(item.parentId || "none");
+    setParentId(
+      item.parentId ? item.parentId.toString() : "none"
+    );
     setSortOrder(String(item.sortOrder ?? "0"));
     setIsActive(item.isActive);
     setImage(item.image || "");
     setOpen(true);
   };
+  
 
 
   // ===================== UPLOAD IMAGE ======================
@@ -112,15 +115,19 @@ export default function AdminCategory() {
       return;
     }
 
-    const body = {
-      name,
+    // build body cơ bản – DÙNG displayOrder cho đúng schema backend
+    const body: any = {
+      name: name.trim(),
       description,
-      parentId: parentId === "none" ? null : parentId,
-      sortOrder: Number(sortOrder),
+      displayOrder: Number(sortOrder) || 0,   // 👈 đổi sang displayOrder
       isActive,
       image,
     };
-    
+
+    // CHỈ thêm parentId khi thực sự chọn danh mục cha
+    if (parentId && parentId !== "none") {
+      body.parentId = parentId; // _id của Category (Mongo ObjectId)
+    }
 
     try {
       if (editItem) {
@@ -135,9 +142,11 @@ export default function AdminCategory() {
       resetForm();
       loadCategories();
     } catch (err: any) {
+      console.error("Lỗi tạo/cập nhật category:", err);
       toast.error(err?.message || "Có lỗi xảy ra");
     }
   };
+
 
   // ===================== DELETE CATEGORY ======================
   const handleDelete = async (id: string) => {

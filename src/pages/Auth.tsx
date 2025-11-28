@@ -34,39 +34,43 @@ const Auth = () => {
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-
+  
     try {
-      const res = await login(signinEmail, signinPassword);
-
-      // res === json.data từ backend
-      const user = res.user;
-      const token = res.token;
+      // login() trả về { user, token, refreshToken }
+      const { user, token } = await login(signinEmail, signinPassword);
+  
+      if (!user) {
+        throw new Error("Không nhận được thông tin người dùng");
+      }
+  
+      // ⚠️ Nếu tài khoản bị khóa thì không cho đăng nhập
+      if (user.isBlocked) {
+        toast.error("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ hỗ trợ.");
+        setIsLoading(false);
+        return;
+      }
+  
+      // Lưu toàn bộ user + token để chỗ khác dùng (Cart, Header,...)
       localStorage.setItem(
         "user",
         JSON.stringify({
-          id: user._id,
-          email: user.email,
-          fullName: user.fullName,
-          role: user.role,
-          token: token,   // lấy từ res.token
+          ...user, // id, email, firstName, lastName, fullName, avatar, loyaltyTier,...
+          token, // thêm token để call API nếu cần
         })
       );
-
-
-
-
+  
       toast.success("Đăng nhập thành công");
-
+  
       if (user.role === "admin") navigate("/admin");
       else navigate("/");
-
     } catch (error: any) {
       toast.error(error.message || "Đăng nhập thất bại");
     } finally {
       setIsLoading(false);
     }
   };
-
+  
+  
 
 
 

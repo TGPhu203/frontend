@@ -4,7 +4,7 @@ const BASE_URL = "http://localhost:8888/api/auth";
 export async function login(email: string, password: string) {
   const res = await fetch(`${BASE_URL}/login`, {
     method: "POST",
-    credentials: "include",   // 🔥 QUAN TRỌNG
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
@@ -15,15 +15,21 @@ export async function login(email: string, password: string) {
     throw new Error(json.message || "Đăng nhập thất bại");
   }
 
-  return json.data;
+  const { user, token, refreshToken } = json.data || {};
+
+  // lưu user xuống localStorage để Cart.tsx đọc loyaltyTier
+  if (user) {
+    localStorage.setItem("user", JSON.stringify(user));
+  }
+
+  return { user, token, refreshToken };
 }
 
-
 /* ================= REGISTER ================= */
-export async function register(data) {
+export async function register(data: any) {
   const res = await fetch(`${BASE_URL}/register`, {
     method: "POST",
-    credentials: "include",   // 🔥 thêm dòng này
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });

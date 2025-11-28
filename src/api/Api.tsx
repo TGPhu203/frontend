@@ -15,6 +15,7 @@ export interface FetchProductsParams {
   inStock?: boolean;
   featured?: boolean;
   status?: string;
+  minDiscountPercent?: number;  
 }
 
 export interface ApiResponse<T> {

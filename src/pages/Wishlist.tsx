@@ -3,57 +3,50 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { getWishlist, removeFromWishlist } from "@/api/wishlistApi";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { BASE_ORIGIN } from "@/api/Api";
 import { toast } from "sonner";
-import { Heart, ArrowLeft, ShoppingBag } from "lucide-react";
-
+import { Heart } from "lucide-react";
+import AccountLayout from "./AccountLayout"; // 👈 dùng layout tài khoản
+import { removeFromWishlist } from "@/api/wishlistApi";
+import { useWishlist } from "@/components/WishlistContext";
+// mỗi phần tử chính là product
 type WishlistItem = {
   _id: string;
-  product: {
-    _id: string;
-    name: string;
-    price: number;
-    compareAtPrice?: number;
-    images?: string[];
-    inStock?: boolean;
-  };
+  name: string;
+  price: number;
+  compareAtPrice?: number;
+  images?: string[];
+  thumbnail?: string;
+  inStock?: boolean;
 };
 
+type SortKey =
+  | "default"
+  | "promo"
+  | "priceAsc"
+  | "priceDesc"
+  | "newest"
+  | "bestseller";
+
 export default function Wishlist() {
-  const [items, setItems] = useState<WishlistItem[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const load = async () => {
-    try {
-      setLoading(true);
-      const data = await getWishlist();
-      setItems(data || []);
-    } catch (err: any) {
-      toast.error("Không thể tải danh sách yêu thích");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [activeSort, setActiveSort] = useState<SortKey>("default");
+  const { items, loading, refreshWishlist, wishlistCount } = useWishlist();
 
-  useEffect(() => {
-    load();
-  }, []);
 
   const handleRemove = async (productId: string) => {
     try {
       await removeFromWishlist(productId);
       toast.success("Đã xoá khỏi danh sách yêu thích");
-      load();
+      await refreshWishlist(); // 👈 cập nhật lại danh sách + Header
     } catch (err: any) {
       toast.error(err?.message || "Không thể xoá sản phẩm");
     }
   };
+  
+  
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("vi-VN", {
@@ -61,153 +54,178 @@ export default function Wishlist() {
       currency: "VND",
     }).format(price);
 
-  const resolveImage = (p: WishlistItem["product"]) => {
-    const raw = p.images?.[0];
+  const resolveImage = (p: WishlistItem) => {
+    const raw =
+      p.thumbnail ||
+      (Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : "") ||
+      "";
+
     if (!raw) return "/placeholder.png";
     if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
-    return BASE_ORIGIN + raw;
+    if (raw.startsWith("//")) return `${window.location.protocol}${raw}`;
+    if (raw.startsWith("/")) return `${BASE_ORIGIN}${raw}`;
+    return `${BASE_ORIGIN}/${raw}`;
   };
 
+  // sort nhẹ cho giống “Sắp xếp theo”
+  const sortedItems = (() => {
+    const arr = [...items];
+    switch (activeSort) {
+      case "priceAsc":
+        return arr.sort((a, b) => a.price - b.price);
+      case "priceDesc":
+        return arr.sort((a, b) => b.price - a.price);
+      default:
+        return arr;
+    }
+  })();
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
+    <AccountLayout>
+      {/* Thanh tiêu đề + sort giống Phong Vũ */}
+      <div className="bg-white border border-slate-200 border-b-0 rounded-t-sm px-6 pt-5 pb-3">
+        <h1 className="text-[20px] font-semibold text-slate-900 mb-4">
+          Sản phẩm yêu thích
+        </h1>
 
-      <main className="flex-1">
-        {/* HERO NHẸ NHÀNG */}
-        <section className="relative border-b bg-gradient-to-r from-primary/10 via-background to-primary/10 py-8 md:py-10">
-          <div className="pointer-events-none absolute -left-16 top-4 h-28 w-28 rounded-full bg-primary/10 blur-3xl" />
-          <div className="pointer-events-none absolute -right-16 bottom-0 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
+        <div className="flex flex-wrap items-center gap-2 text-[13px]">
+          <span className="mr-1 text-slate-700">Sắp xếp theo</span>
+          <SortPill
+            label="Mặc định"
+            active={activeSort === "default"}
+            onClick={() => setActiveSort("default")}
+          />
+          <SortPill
+            label="Khuyến mãi tốt nhất"
+            active={activeSort === "promo"}
+            onClick={() => setActiveSort("promo")}
+          />
+          <SortPill
+            label="Giá tăng dần"
+            active={activeSort === "priceAsc"}
+            onClick={() => setActiveSort("priceAsc")}
+          />
+          <SortPill
+            label="Giá giảm dần"
+            active={activeSort === "priceDesc"}
+            onClick={() => setActiveSort("priceDesc")}
+          />
+          <SortPill
+            label="Sản phẩm mới nhất"
+            active={activeSort === "newest"}
+            onClick={() => setActiveSort("newest")}
+          />
+          <SortPill
+            label="Sản phẩm bán chạy nhất"
+            active={activeSort === "bestseller"}
+            onClick={() => setActiveSort("bestseller")}
+          />
+        </div>
+      </div>
 
-          <div className="container relative mx-auto px-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary/80">
-                Danh sách yêu thích
-              </p>
-              <h1 className="mt-2 text-2xl md:text-3xl font-semibold tracking-tight">
-                Sản phẩm bạn đang quan tâm
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground max-w-xl">
-                Lưu lại những sản phẩm yêu thích để dễ dàng xem lại và đặt mua bất cứ lúc nào.
-              </p>
+      {/* Vùng nội dung xám nhạt giống ảnh */}
+      <div className="border border-t-0 border-slate-200 rounded-b-sm bg-[#f8f8fb] px-6 py-6">
+        {loading ? (
+          <div className="flex h-40 items-center justify-center text-sm text-slate-500">
+            Đang tải danh sách yêu thích...
+          </div>
+        ) : sortedItems.length === 0 ? (
+          <div className="flex h-60 flex-col items-center justify-center text-center text-sm text-slate-600">
+            <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
+              <Heart className="h-5 w-5 text-primary" />
             </div>
-
-            <Link to="/products" className="mt-3 md:mt-0">
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <ArrowLeft className="h-4 w-4" />
-                Tiếp tục mua sắm
-              </Button>
+            <p className="font-semibold mb-1">
+              Chưa có sản phẩm nào trong danh sách yêu thích
+            </p>
+            <p className="text-xs text-slate-500 mb-4 max-w-md">
+              Thêm sản phẩm vào danh sách yêu thích để theo dõi và đặt mua
+              nhanh chóng.
+            </p>
+            <Link to="/products">
+              <Button size="sm">Khám phá sản phẩm</Button>
             </Link>
           </div>
-        </section>
+        ) : (
+          <div className="flex flex-wrap gap-4">
+            {sortedItems.map((p) => (
+              <Card
+                key={p._id}
+                className="w-[260px] bg-white border border-slate-200 rounded-sm hover:shadow-sm transition-shadow duration-150"
+              >
+                <Link to={`/products/${p._id}`}>
+                  <div className="border-b border-slate-200 px-3 pt-3 pb-2">
+                    <div className="h-[180px] flex items-center justify-center bg-white">
+                      <img
+                        src={resolveImage(p)}
+                        alt={p.name}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
 
-        {/* NỘI DUNG */}
-        <section className="py-10">
-          <div className="container mx-auto px-4">
-            {loading ? (
-              <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-                Đang tải danh sách yêu thích...
-              </div>
-            ) : items.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border bg-card/60 py-14 px-6 text-center">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                  <Heart className="h-6 w-6 text-primary" />
-                </div>
-                <h2 className="text-lg font-semibold mb-1">
-                  Chưa có sản phẩm nào trong danh sách yêu thích
-                </h2>
-                <p className="text-sm text-muted-foreground mb-4 max-w-md">
-                  Thêm sản phẩm vào danh sách yêu thích để theo dõi giá và đặt mua nhanh chóng.
-                </p>
-                <Link to="/products">
-                  <Button className="gap-1.5">
-                    <ShoppingBag className="h-4 w-4" />
-                    Khám phá sản phẩm
-                  </Button>
+                    <div className="mt-2 text-[11px] text-slate-500 uppercase">
+                      ASUS
+                    </div>
+                    <h3 className="mt-1 line-clamp-2 text-[13px] leading-snug text-slate-900">
+                      {p.name}
+                    </h3>
+
+                    <div className="mt-2 flex items-baseline gap-2">
+                      <span className="text-[15px] font-semibold text-[#0050d8]">
+                        {formatPrice(p.price)}
+                      </span>
+                      {p.compareAtPrice && p.compareAtPrice > p.price && (
+                        <span className="text-[12px] text-slate-400 line-through">
+                          {formatPrice(p.compareAtPrice)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </Link>
-              </div>
-            ) : (
-              <>
-                <div className="mb-6 flex items-center justify-between text-sm text-muted-foreground">
-                  <span>
-                    Bạn có{" "}
-                    <span className="font-medium text-foreground">
-                      {items.length}
-                    </span>{" "}
-                    sản phẩm trong danh sách yêu thích
-                  </span>
+
+                <div className="px-3 py-2 flex items-center justify-between text-[11px]">
+                  {p.inStock === false ? (
+                    <span className="text-red-500">Hết hàng</span>
+                  ) : (
+                    <span className="text-emerald-600">Còn hàng</span>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(p._id)}
+                    className="inline-flex items-center gap-1 text-xs text-rose-500 hover:text-rose-600"
+                  >
+                    <Heart className="h-3.5 w-3.5 fill-rose-500" />
+                    Xoá
+                  </button>
                 </div>
-
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                  {items.map((item) => {
-                    const p = item.product;
-                    return (
-                      <Card
-                        key={item._id}
-                        className="group flex h-full flex-col overflow-hidden border-border/70 bg-card/80 hover:border-primary/50 hover:shadow-md transition-all duration-200"
-                      >
-                        <Link to={`/products/${p._id}`} className="flex-1">
-                          <div className="relative aspect-[4/3] overflow-hidden bg-muted/40">
-                            <img
-                              src={resolveImage(p)}
-                              alt={p.name}
-                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            />
-                            {!p.inStock && (
-                              <Badge className="absolute top-3 left-3 bg-destructive text-destructive-foreground text-[11px]">
-                                Hết hàng
-                              </Badge>
-                            )}
-                            {p.inStock && (
-                              <Badge className="absolute top-3 left-3 bg-emerald-500/90 text-[11px]">
-                                Còn hàng
-                              </Badge>
-                            )}
-                          </div>
-
-                          <CardContent className="p-4 space-y-2">
-                            <h3 className="line-clamp-2 text-sm font-semibold group-hover:text-primary transition-colors">
-                              {p.name}
-                            </h3>
-
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-base font-semibold text-primary">
-                                {formatPrice(p.price)}
-                              </span>
-                              {p.compareAtPrice && p.compareAtPrice > p.price && (
-                                <span className="text-xs text-muted-foreground line-through">
-                                  {formatPrice(p.compareAtPrice)}
-                                </span>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Link>
-
-                        <CardFooter className="flex gap-2 p-4 pt-0">
-                          <Link to={`/products/${p._id}`} className="flex-1">
-                            <Button variant="outline" size="sm" className="w-full text-xs">
-                              Xem chi tiết
-                            </Button>
-                          </Link>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 text-destructive hover:text-destructive"
-                            onClick={() => handleRemove(p._id)}
-                          >
-                            <Heart className="h-4 w-4 fill-destructive/80" />
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+              </Card>
+            ))}
           </div>
-        </section>
-      </main>
-
-      <Footer />
-    </div>
+        )}
+      </div>
+    </AccountLayout>
   );
 }
+
+/* ====== COMPONENT PHỤ ====== */
+
+interface SortPillProps {
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}
+
+const SortPill = ({ label, active, onClick }: SortPillProps) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={[
+      "rounded-sm border px-4 py-1.5",
+      active
+        ? "border-[#0050d8] text-[#0050d8] bg-[#f5f8ff]"
+        : "border-slate-200 text-slate-700 hover:bg-slate-50",
+    ].join(" ")}
+  >
+    {label}
+  </button>
+);

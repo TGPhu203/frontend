@@ -28,6 +28,12 @@ import AdminProductWarrantyConfig from "./pages/admin/AdminProductWarrantyConfig
 import AdminRepairRequests from "./pages/admin/AdminRepairRequests";
 import AdminRevenueStats from "./pages/admin/AdminRevenueStats";
 import ProfilePage from "./pages/Profile";
+import AdminProductSpecs from "./pages/admin/AdminProductSpecs";
+import CategoryProductsPage from "./pages/CategoryProducts";
+import AdminLoyaltyConfig from "./pages/admin/AdminLoyaltyConfig";
+import AdminCoupons from "./pages/admin/AdminCoupons";
+import AccountLayout from "./pages/AccountLayout";
+import AddressBook from "./pages/AddressBook";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -37,19 +43,21 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={<Products />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/products" element={<Products />} />
           <Route path="/products/:id" element={<ProductDetail />} />
           <Route path="/categories" element={<Categories />} />
+          <Route path="/categories/:slug" element={<CategoryProductsPage />} />
           <Route path="/warranty" element={<Warranty />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/payment/:id" element={<Payment />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/my-orders" element={<MyOrders />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
-          <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/wishlist" element={<Wishlist />} /> 
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/address" element={<AddressBook />} />
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
@@ -93,8 +101,8 @@ const App = () => (
               </AdminRoute>
             }
           />
-           <Route
-            path="/admin/adminAttributeGroups"
+          <Route
+            path="/admin/products/:productId/attributes"
             element={
               <AdminRoute>
                 <AdminAttributeGroups />
@@ -117,7 +125,7 @@ const App = () => (
               </AdminRoute>
             }
           />
-           <Route
+          <Route
             path="/admin/repair-requests"
             element={
               <AdminRoute>
@@ -125,11 +133,35 @@ const App = () => (
               </AdminRoute>
             }
           />
-           <Route
+          <Route
             path="/admin/revenue"
             element={
               <AdminRoute>
                 <AdminRevenueStats />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/products/:id/specs"
+            element={
+              <AdminRoute>
+                <AdminProductSpecs />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/loyalty"
+            element={
+              <AdminRoute>
+                <AdminLoyaltyConfig />
+              </AdminRoute>
+            }
+          />
+            <Route
+            path="/admin/adminCoupon"
+            element={
+              <AdminRoute>
+                <AdminCoupons />
               </AdminRoute>
             }
           />

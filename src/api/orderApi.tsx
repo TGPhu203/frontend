@@ -1,9 +1,13 @@
 // src/api/orderApi.ts
 import { BASE_ORIGIN } from "./Api";
-
 const BASE = `${BASE_ORIGIN}/api/orders`;
-const ADMIN_BASE = `${BASE_ORIGIN}/api/admin/orders`;
+// 👇 dùng group admin ở order.routes.js
+// GET:  /api/orders/admin/all
+// PATCH: /api/orders/admin/:id/status
+const ADMIN_ORDERS_BASE = `${BASE_ORIGIN}/api/orders/admin`;
 const PAY_BASE = `${BASE_ORIGIN}/api/payments`;
+
+/* ========== USER ========= */
 
 export const createOrder = async (data: any) => {
   const res = await fetch(BASE, {
@@ -13,7 +17,7 @@ export const createOrder = async (data: any) => {
     body: JSON.stringify(data),
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.message);
+  if (!res.ok) throw new Error(json.message || "Không thể tạo đơn hàng");
   return json.data;
 };
 
@@ -22,13 +26,14 @@ export const getUserOrders = async (page = 1, limit = 20) => {
     credentials: "include",
   });
   const json = await res.json();
+  if (!res.ok) throw new Error(json.message || "Không thể tải danh sách đơn");
   return json.data;
 };
 
 export const getOrderById = async (id: string) => {
   const res = await fetch(`${BASE}/${id}`, { credentials: "include" });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.message);
+  if (!res.ok) throw new Error(json.message || "Không thể tải đơn hàng");
   return json.data;
 };
 
@@ -38,7 +43,7 @@ export const cancelOrder = async (id: string) => {
     credentials: "include",
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.message);
+  if (!res.ok) throw new Error(json.message || "Không thể hủy đơn hàng");
   return json.data;
 };
 
@@ -48,11 +53,12 @@ export const repayOrder = async (id: string) => {
     credentials: "include",
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.message);
+  if (!res.ok) throw new Error(json.message || "Không thể thanh toán lại đơn");
   return json.data;
 };
 
 /* ========== ADMIN ========= */
+
 export const adminGetAllOrders = async (q: {
   page?: number;
   limit?: number;
@@ -65,38 +71,44 @@ export const adminGetAllOrders = async (q: {
   if (q.status) params.append("status", q.status);
   if (q.search) params.append("search", q.search);
 
-  const res = await fetch(`${ADMIN_BASE}?${params.toString()}`, {
-    credentials: "include",
-  });
+  const res = await fetch(
+    `${ADMIN_ORDERS_BASE}/all?${params.toString()}`,
+    {
+      credentials: "include",
+    }
+  );
   const json = await res.json();
   if (!res.ok) throw new Error(json.message || "Không thể tải đơn hàng");
 
-  // 👇 Xử lý cả 2 dạng: mảng thuần hoặc object có data
-  if (Array.isArray(json)) return json;       // backend trả trực tiếp mảng
-
+  // backend chuẩn: { status, data: { orders, total, pages, currentPage } }
   const data = json.data;
-  if (Array.isArray(data)) return data;
+
   if (data?.orders && Array.isArray(data.orders)) return data.orders;
+
+  // các fallback khác nếu sau này có thay đổi response
+  if (Array.isArray(json)) return json;
+  if (Array.isArray(data)) return data;
   if (data?.items && Array.isArray(data.items)) return data.items;
 
   return [];
 };
-
-
-export const adminUpdateOrderStatus = async (id: string, data: any) => {
-  const res = await fetch(`${ADMIN_BASE}/${id}/status`, {
-    method: "PATCH", // hoặc "PUT" nếu backend dùng PUT
+export const adminUpdateOrderStatus = async (id: string, status: string) => {
+  const res = await fetch(`${ADMIN_ORDERS_BASE}/${id}/status`, {
+    method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify(data),
+    body: JSON.stringify({ status }),
   });
+
   const json = await res.json();
-  if (!res.ok) throw new Error(json.message);
-  return json.data;
+  if (!res.ok) {
+    throw new Error(json.message || "Không thể cập nhật trạng thái đơn hàng");
+  }
+  return json.data ?? json;
 };
 
+/* ========== PAYMENT ========= */
 
-/* ========== PAYMENT (FE gọi backend) ========= */
 export const createVnPayPayment = async (orderId: string) => {
   const res = await fetch(`${PAY_BASE}/vnpay`, {
     method: "POST",
@@ -105,8 +117,8 @@ export const createVnPayPayment = async (orderId: string) => {
     body: JSON.stringify({ orderId }),
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.message);
-  // backend should return { url: "https://vnpay/..." } or data
+  if (!res.ok)
+    throw new Error(json.message || "Không thể tạo thanh toán VNPAY");
   return json.data;
 };
 
@@ -118,6 +130,7 @@ export const createMomoPayment = async (orderId: string) => {
     body: JSON.stringify({ orderId }),
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.message);
+  if (!res.ok)
+    throw new Error(json.message || "Không thể tạo thanh toán MOMO");
   return json.data;
 };

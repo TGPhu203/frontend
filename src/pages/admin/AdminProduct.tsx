@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Edit, Trash2, Loader2, Star } from "lucide-react";
 import { toast } from "sonner";
-
+import { useNavigate } from "react-router-dom";
 import {
   getAdminProducts,
   createAdminProduct,
@@ -25,6 +25,7 @@ import { AdminEditProduct } from "./AdminEditProduct";
 import { BASE_ORIGIN } from "@/api/Api";
 
 const AdminProduct = () => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -311,6 +312,27 @@ const AdminProduct = () => {
                         {/* ACTIONS */}
                         <TableCell className="px-6 py-3 align-middle">
                           <div className="flex justify-end gap-1.5">
+                            {/* ⭐ NÚT TỚI THÔNG SỐ KỸ THUẬT */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 rounded-full border-border/70 text-xs px-3 hover:bg-sky-50 hover:text-sky-700"
+                              onClick={() =>
+                                navigate(`/admin/products/${p._id}/specs`)
+                              }
+                            >
+                              Thông số
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 rounded-full border-border/70 text-xs px-3 hover:bg-violet-50 hover:text-violet-700"
+                              onClick={() =>
+                                navigate(`/admin/products/${p._id}/attributes`)
+                              }
+                            >
+                              Thuộc tính
+                            </Button>
                             <Button
                               size="icon"
                               variant="outline"

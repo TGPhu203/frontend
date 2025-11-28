@@ -30,8 +30,6 @@ import {
   FileText,
 } from "lucide-react";
 
-// ===== TYPES =====
-
 type OrderAddress = {
   fullName?: string;
   phone?: string;
@@ -55,6 +53,7 @@ type OrderItem = {
     name: string;
     slug?: string;
     thumbnail?: string;
+    images?: string[];
   };
   variantId?: {
     _id: string;
@@ -102,19 +101,14 @@ type Order = {
   items?: OrderItem[];
 };
 
-
-
 const resolveImageUrl = (url?: string | null) => {
   if (!url) return "/placeholder.png";
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
   return `${BASE_ORIGIN}${url.startsWith("/") ? url : `/${url}`}`;
 };
 
-
-
 const money = (n: number | null | undefined) =>
   Number(n ?? 0).toLocaleString("vi-VN");
-
 
 const formatDateTime = (iso?: string) => {
   if (!iso) return "—";
@@ -125,6 +119,7 @@ const formatDateTime = (iso?: string) => {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 };
 
@@ -132,7 +127,7 @@ const STATUS_LABELS: Record<string, string> = {
   pending: "Chờ xác nhận",
   confirmed: "Đã xác nhận",
   processing: "Đang xử lý",
-  shipping: "Đang giao",
+  shipping: "Đang giao hàng",
   completed: "Hoàn thành",
   cancelled: "Đã hủy",
   failed: "Thanh toán thất bại",
@@ -143,6 +138,12 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   paid: "Đã thanh toán",
   failed: "Thanh toán thất bại",
   refunded: "Đã hoàn tiền",
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cod: "Thanh toán khi nhận hàng (COD)",
+  stripe: "Thanh toán online (Stripe)",
+  vnpay: "Thanh toán qua VNPay",
 };
 
 const getStatusVariant = (
@@ -180,8 +181,6 @@ const getPaymentStatusVariant = (
   }
 };
 
-// ===== COMPONENT =====
-
 const OrderDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -192,17 +191,18 @@ const OrderDetail = () => {
     if (!id || id === ":id") {
       setLoading(false);
       setOrder(null);
-      toast.error("ID đơn hàng không hợp lệ");
+      toast.error("Mã đơn hàng không hợp lệ.");
       return;
     }
 
     try {
+      setLoading(true);
       const res = await getOrderById(id);
       const orderData: Order =
         res?.data?.data ?? res?.data ?? res?.order ?? res;
       setOrder(orderData);
     } catch (e: any) {
-      toast.error(e?.message || "Không thể tải đơn hàng");
+      toast.error(e?.message || "Không thể tải đơn hàng, vui lòng thử lại.");
       setOrder(null);
     } finally {
       setLoading(false);
@@ -217,10 +217,10 @@ const OrderDetail = () => {
     if (!id) return;
     try {
       await cancelOrder(id);
-      toast.success("Đã hủy đơn hàng");
+      toast.success("Đơn hàng đã được hủy.");
       load();
     } catch (e: any) {
-      toast.error(e?.message || "Hủy đơn hàng thất bại");
+      toast.error(e?.message || "Hủy đơn hàng thất bại, vui lòng thử lại.");
     }
   };
 
@@ -231,7 +231,7 @@ const OrderDetail = () => {
         <div className="min-h-[calc(100vh-160px)] flex items-center justify-center bg-slate-50">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span>Đang tải chi tiết đơn hàng…</span>
+            <span>Đang tải đơn hàng...</span>
           </div>
         </div>
         <Footer />
@@ -248,8 +248,12 @@ const OrderDetail = () => {
             <ShoppingBag className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
             <p className="font-semibold mb-1">Không tìm thấy đơn hàng</p>
             <p className="text-sm text-muted-foreground">
-              Vui lòng kiểm tra lại mã đơn hàng hoặc quay lại trang trước.
+              Bạn vui lòng kiểm tra lại mã đơn hàng hoặc quay về trang đơn hàng
+              của tôi.
             </p>
+            <Button className="mt-4" variant="outline" onClick={() => navigate(-1)}>
+              Quay lại
+            </Button>
           </Card>
         </div>
         <Footer />
@@ -265,10 +269,6 @@ const OrderDetail = () => {
 
   const canCancel = ["pending", "confirmed"].includes(order.status);
 
-  // chỉ cho thanh toán lại nếu:
-  // - phương thức là stripe
-  // - chưa thanh toán
-  // - đơn chưa bị hủy / thất bại / hoàn thành
   const canPayByStripe =
     order.paymentMethod === "stripe" &&
     order.paymentStatus !== "paid" &&
@@ -280,14 +280,21 @@ const OrderDetail = () => {
   const discount = order.discountAmount ?? 0;
   const total = order.totalAmount ?? order.total ?? 0;
 
+  const paymentMethodLabel =
+    (order.paymentMethod &&
+      PAYMENT_METHOD_LABELS[order.paymentMethod] !== undefined &&
+      PAYMENT_METHOD_LABELS[order.paymentMethod]) ||
+    order.paymentMethod ||
+    "—";
+
   return (
     <>
       <Header />
 
       <div className="min-h-[calc(100vh-160px)] bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100">
-        <div className="container mx-auto py-10 max-w-5xl">
-          {/* Header đơn hàng */}
-          <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="container mx-auto py-8 max-w-5xl">
+          {/* Phần tiêu đề đơn hàng */}
+          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                 <ShoppingBag className="w-4 h-4" />
@@ -299,12 +306,12 @@ const OrderDetail = () => {
               <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <CalendarClock className="w-4 h-4" />
-                  <span>Ngày đặt: {formatDateTime(order.createdAt)}</span>
+                  <span>Đặt lúc: {formatDateTime(order.createdAt)}</span>
                 </div>
                 {order.updatedAt && (
                   <div className="flex items-center gap-2">
                     <FileText className="w-4 h-4" />
-                    <span>Cập nhật: {formatDateTime(order.updatedAt)}</span>
+                    <span>Cập nhật gần nhất: {formatDateTime(order.updatedAt)}</span>
                   </div>
                 )}
               </div>
@@ -335,10 +342,10 @@ const OrderDetail = () => {
             </div>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-[1.8fr_1.2fr]">
-            {/* LEFT: Sản phẩm + bảo hành */}
-            <div className="space-y-6">
-              <Card className="border border-slate-200/70 shadow-sm">
+          <div className="grid gap-0 md:grid-cols-[1.8fr_1.2fr] rounded-none">
+            {/* Cột trái: Sản phẩm + ghi chú */}
+            <div className="space-y-0 rounded-none">
+              <Card className="border border-slate-200/70 shadow-sm rounded-none">
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CardTitle className="text-lg">Sản phẩm</CardTitle>
@@ -348,26 +355,25 @@ const OrderDetail = () => {
                   </div>
                 </CardHeader>
                 <Separator />
-                <CardContent className="pt-4">
+                <CardContent className="pt-4 rounded-none">
                   {order.items && order.items.length > 0 ? (
-                    <ScrollArea className="max-h-[420px] pr-2">
+                    <ScrollArea className="max-h-[420px] pr-2 rounded-none">
                       <div className="space-y-4">
                         {order.items.map((i) => {
                           const rawImage =
                             i.image ||
-                            (i.productId as any)?.thumbnail ||
-                            (i.productId as any)?.images?.[0] || // nếu product có mảng images giống ProductCard
+                            i.productId?.thumbnail ||
+                            i.productId?.images?.[0] ||
                             "";
 
                           const image = resolveImageUrl(rawImage);
 
-
                           return (
                             <div
                               key={i._id}
-                              className="flex gap-4 border border-slate-100 rounded-xl p-4 bg-white/50"
+                              className="flex gap-4 border border-slate-100  p-4 bg-white/50"
                             >
-                              <div className="w-24 h-24 flex-shrink-0 overflow-hidden rounded-lg border bg-slate-100">
+                              <div className="w-24 h-24 flex-shrink-0 overflow-hidden border bg-slate-100">
                                 <img
                                   src={image}
                                   alt={i.name}
@@ -423,7 +429,7 @@ const OrderDetail = () => {
                                 </div>
 
                                 {i.warrantyPackageId && (
-                                  <div className="mt-2 rounded-lg bg-slate-50 border border-slate-100 p-2.5 text-xs flex flex-col gap-1">
+                                  <div className="mt-2 bg-slate-50 border border-slate-100 p-2.5 text-xs flex flex-col gap-1">
                                     <div className="flex items-center gap-2">
                                       <ShieldCheck className="w-3.5 h-3.5 text-primary" />
                                       <span className="font-semibold">
@@ -435,8 +441,8 @@ const OrderDetail = () => {
                                         undefined && (
                                           <span>
                                             Thời hạn:{" "}
-                                            {i.warrantyPackageId
-                                              .durationMonths || 0}{" "}
+                                            {i.warrantyPackageId.durationMonths ||
+                                              0}{" "}
                                             tháng
                                           </span>
                                         )}
@@ -469,19 +475,18 @@ const OrderDetail = () => {
                     </ScrollArea>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Không có sản phẩm trong đơn hàng.
+                      Đơn hàng này chưa có sản phẩm.
                     </p>
                   )}
                 </CardContent>
               </Card>
 
-              {/* Ghi chú đơn hàng */}
               {order.notes && (
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <FileText className="w-4 h-4" />
-                      Ghi chú đơn hàng
+                      Ghi chú của bạn
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -493,10 +498,9 @@ const OrderDetail = () => {
               )}
             </div>
 
-            {/* RIGHT: Tổng tiền + giao hàng + thanh toán */}
-            <div className="space-y-6">
-              {/* Tổng tiền */}
-              <Card className="border border-slate-200/70 shadow-sm">
+            {/* Cột phải: Tổng tiền + giao hàng + thanh toán */}
+            <div className="space-y-0">
+              <Card className="border border-slate-200/70 shadow-sm rounded-none">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">Tổng tiền</CardTitle>
                 </CardHeader>
@@ -511,7 +515,7 @@ const OrderDetail = () => {
                     <span>{money(tax)}₫</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Vận chuyển</span>
+                    <span>Phí vận chuyển</span>
                     <span>{money(shipping)}₫</span>
                   </div>
                   <div className="flex justify-between">
@@ -535,8 +539,7 @@ const OrderDetail = () => {
                 </CardContent>
               </Card>
 
-              {/* Giao hàng */}
-              <Card className="border border-slate-200/70 shadow-sm">
+              <Card className="border border-slate-200/70 shadow-sm rounded-none">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Truck className="w-4 h-4" />
@@ -560,9 +563,11 @@ const OrderDetail = () => {
                         <div>
                           <div>{order.shippingAddress.addressLine1}</div>
                           <div className="text-xs text-muted-foreground">
-                            {[order.shippingAddress.city,
-                            order.shippingAddress.state,
-                            order.shippingAddress.country]
+                            {[
+                              order.shippingAddress.city,
+                              order.shippingAddress.state,
+                              order.shippingAddress.country,
+                            ]
                               .filter(Boolean)
                               .join(", ")}
                           </div>
@@ -577,8 +582,7 @@ const OrderDetail = () => {
                 </CardContent>
               </Card>
 
-              {/* Thanh toán */}
-              <Card className="border border-slate-200/70 shadow-sm">
+              <Card className="border border-slate-200/70 shadow-sm rounded-none">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <WalletCards className="w-4 h-4" />
@@ -599,16 +603,16 @@ const OrderDetail = () => {
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2">
                       <CreditCard className="w-4 h-4 text-muted-foreground" />
-                      Phương thức
+                      Hình thức
                     </span>
-                    <span className="font-medium">
-                      {order.paymentMethod || "—"}
+                    <span className="font-medium text-right max-w-[210px]">
+                      {paymentMethodLabel}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <span>Mã giao dịch</span>
-                    <span className="font-mono text-xs">
+                    <span className="font-mono text-xs text-right max-w-[210px] truncate">
                       {order.paymentTransactionId || "—"}
                     </span>
                   </div>
@@ -622,9 +626,11 @@ const OrderDetail = () => {
                         <div>{order.billingAddress.fullName}</div>
                         <div>{order.billingAddress.addressLine1}</div>
                         <div>
-                          {[order.billingAddress.city,
-                          order.billingAddress.state,
-                          order.billingAddress.country]
+                          {[
+                            order.billingAddress.city,
+                            order.billingAddress.state,
+                            order.billingAddress.country,
+                          ]
                             .filter(Boolean)
                             .join(", ")}
                         </div>

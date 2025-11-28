@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -53,12 +51,6 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // form tạo review
-  const [formRating, setFormRating] = useState<number>(5);
-  const [formTitle, setFormTitle] = useState("");
-  const [formComment, setFormComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
   const fetchReviews = async () => {
     setLoading(true);
     try {
@@ -98,43 +90,6 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, sort, ratingFilter, productId]);
 
-  const handleSubmitReview = async () => {
-    if (!formComment.trim()) {
-      toast.error("Vui lòng nhập nội dung đánh giá");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await fetch(`${API_BASE}/reviews`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId,
-          rating: formRating,
-          title: formTitle,
-          comment: formComment,
-          images: [],
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.message || "Không thể gửi đánh giá");
-      }
-
-      toast.success("Đã gửi đánh giá");
-      setFormRating(5);
-      setFormTitle("");
-      setFormComment("");
-      setPage(1);
-      fetchReviews();
-    } catch (err: any) {
-      toast.error(err.message || "Lỗi khi gửi đánh giá");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleHelpful = async (reviewId: string, helpful: boolean) => {
     try {
       const res = await fetch(`${API_BASE}/reviews/${reviewId}/helpful`, {
@@ -157,9 +112,17 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
     }
   };
 
+  // Chỉ lấy các review đã thực sự đánh giá (có sao và có nội dung)
+  const visibleReviews = reviews.filter((r) => {
+    const hasRating = typeof r.rating === "number" && r.rating > 0;
+    const hasContent = r.content && r.content.trim().length > 0;
+    return hasRating && hasContent;
+  });
+
   const avgRating =
-    total > 0
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length || 0
+    visibleReviews.length > 0
+      ? visibleReviews.reduce((sum, r) => sum + r.rating, 0) /
+        visibleReviews.length
       : 0;
 
   const renderStars = (value: number, size: "lg" | "sm" = "sm") =>
@@ -184,15 +147,14 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
 
   return (
     <div className="space-y-6 mt-10">
-      {/* Tổng quan rating + form tạo review */}
+      {/* Tổng quan rating + bộ lọc (KHÔNG còn form gửi đánh giá) */}
       <Card className="border-border/70 bg-card/80 p-4 md:p-6 rounded-xl shadow-sm">
-        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-          {/* Tổng quan rating */}
-          <div className="flex-1 space-y-3">
-            <p className="text-xs font-medium uppercase tracking-[0.12em] text-primary/80">
-              Đánh giá & nhận xét
-            </p>
+        <div className="space-y-3">
+          <p className="text-xs font-medium uppercase tracking-[0.12em] text-primary/80">
+            Đánh giá & nhận xét
+          </p>
 
+          <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-4">
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-semibold">
@@ -205,17 +167,14 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
                   {renderStars(avgRating, "lg")}
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  Dựa trên {total} đánh giá
+                  Dựa trên {visibleReviews.length} đánh giá
                 </span>
               </div>
             </div>
 
             {/* Bộ lọc nhỏ */}
             <div className="flex flex-wrap gap-2 pt-2">
-              <Select
-                value={sort}
-                onValueChange={(v: any) => setSort(v)}
-              >
+              <Select value={sort} onValueChange={(v: any) => setSort(v)}>
                 <SelectTrigger className="w-40 h-9 text-xs">
                   <SelectValue placeholder="Sắp xếp" />
                 </SelectTrigger>
@@ -228,7 +187,9 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
 
               <Select
                 value={ratingFilter ? String(ratingFilter) : "all"}
-                onValueChange={(v) => setRatingFilter(v === "all" ? null : Number(v))}
+                onValueChange={(v) =>
+                  setRatingFilter(v === "all" ? null : Number(v))
+                }
               >
                 <SelectTrigger className="w-32 h-9 text-xs">
                   <SelectValue placeholder="Lọc điểm" />
@@ -244,82 +205,26 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
               </Select>
             </div>
           </div>
-
-          {/* Form viết đánh giá */}
-          <div className="w-full md:w-[360px] rounded-lg border bg-background/60 p-4 space-y-3">
-            <p className="font-semibold text-sm">Viết đánh giá của bạn</p>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Chọn số sao:</span>
-              <div className="flex gap-1">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setFormRating(i + 1)}
-                    className="focus:outline-none"
-                  >
-                    <Star
-                      className={`h-5 w-5 ${
-                        i < formRating
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "text-muted-foreground"
-                      }`}
-                    />
-                  </button>
-                ))}
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {formRating}/5
-              </span>
-            </div>
-
-            <Input
-              placeholder="Tiêu đề (tuỳ chọn)"
-              value={formTitle}
-              onChange={(e) => setFormTitle(e.target.value)}
-              className="text-sm"
-            />
-
-            <Textarea
-              placeholder="Chia sẻ trải nghiệm thực tế của bạn về sản phẩm..."
-              value={formComment}
-              onChange={(e) => setFormComment(e.target.value)}
-              rows={3}
-              className="text-sm resize-none"
-            />
-
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                className="px-4"
-                onClick={handleSubmitReview}
-                disabled={submitting}
-              >
-                {submitting ? "Đang gửi..." : "Gửi đánh giá"}
-              </Button>
-            </div>
-          </div>
         </div>
       </Card>
 
-      {/* Danh sách review */}
+      {/* Danh sách review (chỉ render visibleReviews) */}
       <Card className="border-border/70 bg-card/80 p-4 md:p-6 rounded-xl shadow-sm">
         {loading ? (
           <div className="text-sm text-muted-foreground">
             Đang tải đánh giá...
           </div>
-        ) : reviews.length === 0 ? (
+        ) : visibleReviews.length === 0 ? (
           <div className="text-sm text-muted-foreground">
-            Chưa có đánh giá nào cho sản phẩm này. Hãy là người đầu tiên chia sẻ
-            trải nghiệm của bạn.
+            Chưa có đánh giá nào cho sản phẩm này.
           </div>
         ) : (
           <div className="space-y-5">
-            {reviews.map((r) => {
+            {visibleReviews.map((r) => {
               const fullName =
-                `${r.userId?.firstName || ""} ${r.userId?.lastName || ""}`.trim() ||
-                "Người dùng ẩn danh";
+                `${r.userId?.firstName || ""} ${
+                  r.userId?.lastName || ""
+                }`.trim() || "Người dùng ẩn danh";
               const created = new Date(r.createdAt).toLocaleString("vi-VN");
               const initials = fullName
                 .split(" ")

@@ -8,17 +8,34 @@ const getToken = () => {
 
 /* ===================== GET PRODUCTS ===================== */
 export async function getAdminProducts(page = 1, limit = 20) {
-  const res = await fetch(`${ADMIN_BASE_URL}/products?page=${page}&limit=${limit}`, {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${getToken()}`,
-    },
-  });
+  const res = await fetch(
+    `${ADMIN_BASE_URL}/products?page=${page}&limit=${limit}`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+    }
+  );
 
   if (!res.ok) throw new Error("Không thể tải sản phẩm");
-  return res.json();
-}
 
+  const json = await res.json();
+
+  // backend có thể trả:
+  // - mảng: [ {..product..} ]
+  // - object: { status, data: { products: [...] } }
+  if (Array.isArray(json)) return json;
+
+  if (json?.data?.products && Array.isArray(json.data.products)) {
+    return json.data.products;
+  }
+
+  // fallback: nếu backend trả data là mảng
+  if (Array.isArray(json?.data)) return json.data;
+
+  return [];
+}
 /* ===================== CREATE PRODUCT ===================== */
 export async function createAdminProduct(data: any) {
   const res = await fetch(`${ADMIN_BASE_URL}/products`, {
@@ -33,8 +50,6 @@ export async function createAdminProduct(data: any) {
   if (!res.ok) throw new Error("Không thể tạo sản phẩm");
   return res.json();
 }
-
-/* ===================== UPDATE PRODUCT ===================== */
 export async function updateAdminProduct(id: string, data: any) {
   const res = await fetch(`${ADMIN_BASE_URL}/products/${id}`, {
     method: "PUT",
@@ -45,8 +60,19 @@ export async function updateAdminProduct(id: string, data: any) {
     body: JSON.stringify(data),
   });
 
-  if (!res.ok) throw new Error("Không thể cập nhật sản phẩm");
-  return res.json();
+  let json: any = null;
+  try {
+    json = await res.json();
+  } catch {
+    // nếu backend trả 204 / không có body
+  }
+
+  if (!res.ok) {
+    const message = json?.message || "Không thể cập nhật sản phẩm";
+    throw new Error(message);
+  }
+
+  return json;
 }
 
 /* ===================== DELETE PRODUCT ===================== */

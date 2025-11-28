@@ -1,4 +1,20 @@
 // ===============================
+// 🟦 Product Attribute
+// ===============================
+export interface AttributeOption {
+  _id: string;
+  name: string;
+  priceAdjustment?: number;
+  isDefault?: boolean;
+}
+
+export interface ProductAttribute {
+  _id: string;
+  name: string;
+  options?: AttributeOption[];
+}
+
+// ===============================
 // 🟦 Product Variant
 // ===============================
 export interface ProductVariant {
@@ -40,8 +56,20 @@ export interface ProductSpecification {
 }
 
 // ===============================
-// 🟦 Warranty package
+// 🟦 Warranty package (nếu dùng kiểu mới warrantyOptions)
 // ===============================
+export interface WarrantyOption {
+  _id: string;
+  name: string;
+  description?: string;
+  durationMonths?: number;
+  basePrice?: number;
+  price: number;
+  isDefault?: boolean;
+  productWarrantyId?: string;
+}
+
+// Nếu còn dùng kiểu cũ WarrantyPackageItem thì giữ luôn:
 export interface WarrantyPackageItem {
   _id: string;
   warrantyPackage: {
@@ -60,11 +88,16 @@ export interface Product {
 
   name: string;
   baseName?: string; // for variant products
-
   slug: string;
 
+  // giá đã cộng thuộc tính mặc định ở backend
   price: number;
   compareAtPrice?: number | null;
+
+  // backend có thể trả thêm:
+  attributePriceAdjustment?: number;
+  finalPrice?: number;
+  finalCompareAtPrice?: number;
 
   images?: string[];
 
@@ -75,7 +108,9 @@ export interface Product {
 
   categories?: ProductCategory[];
 
-  attributes?: any[];
+  // attributes đã gõ type chuẩn
+  attributes?: ProductAttribute[];
+
   specifications?: Record<string, any>;
 
   reviews?: any[];
@@ -84,7 +119,9 @@ export interface Product {
   variants?: ProductVariant[];
   isVariantProduct?: boolean;
 
+  // hai dạng bảo hành – dùng cái nào thì tuỳ backend
   warrantyPackages?: WarrantyPackageItem[];
+  warrantyOptions?: WarrantyOption[];
 
   stockQuantity?: number;
   inStock?: boolean;

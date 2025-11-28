@@ -28,7 +28,7 @@ import {
   AlertCircle,
   Smartphone,
 } from "lucide-react";
-
+import { BASE_ORIGIN } from "@/api/Api";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -406,11 +406,16 @@ const Warranty = () => {
                         <div className="flex gap-3">
                           {imeiResult.productImage && (
                             <img
-                              src={imeiResult.productImage}
+                              src={
+                                imeiResult.productImage.startsWith("http")
+                                  ? imeiResult.productImage
+                                  : `${BASE_ORIGIN}${imeiResult.productImage}`
+                              }
                               alt={imeiResult.productName || "Sản phẩm"}
                               className="w-20 h-20 rounded-md border object-cover"
                             />
                           )}
+
                           <div>
                             <p className="font-semibold">
                               {imeiResult.productName || "Sản phẩm không rõ"}

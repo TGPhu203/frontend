@@ -1,98 +1,107 @@
-// src/pages/admin/AdminAttributeGroups.tsx
+// src/pages/admin/AdminProductAttributes.tsx
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
-import { getAttributeGroups, createAttributeGroup } from "@/api/attributeApi";
+import { ProductAttributeGroupsForm } from "../ProductAttributeGroupsForm";
+import { getAdminProducts } from "@/api/adminProductApi";
 
-const AdminAttributeGroups = () => {
-  const [groups, setGroups] = useState<any[]>([]);
+const AdminProductAttributes = () => {
+  const { productId } = useParams<{ productId: string }>();
+  const navigate = useNavigate();
+  const [product, setProduct] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  const [newName, setNewName] = useState("");
-
-  const load = async () => {
-    try {
-      const data = await getAttributeGroups();
-      setGroups(data || []);
-    } catch (e: any) {
-      toast.error(e.message || "Lỗi khi tải nhóm thuộc tính");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
+    const load = async () => {
+      if (!productId) return;
+      try {
+        setLoading(true);
+        const list = await getAdminProducts();
+        const found = list.find((p: any) => p._id === productId) || null;
+        if (!found) {
+          toast.error("Không tìm thấy sản phẩm");
+        }
+        setProduct(found);
+      } catch (e: any) {
+        toast.error(e.message || "Lỗi tải sản phẩm");
+      } finally {
+        setLoading(false);
+      }
+    };
     load();
-  }, []);
+  }, [productId]);
 
-  const handleCreate = async () => {
-    if (!newName.trim()) return;
-    try {
-      const created = await createAttributeGroup({ name: newName });
-      setGroups((prev) => [...prev, created]);
-      setNewName("");
-      toast.success("Đã tạo nhóm thuộc tính");
-    } catch (e: any) {
-      toast.error(e.message || "Không tạo được nhóm thuộc tính");
-    }
-  };
+  if (!productId) {
+    return (
+      <AdminLayout>
+        <div className="p-6">Thiếu productId</div>
+      </AdminLayout>
+    );
+  }
 
   if (loading) {
     return (
       <AdminLayout>
-        <div className="p-6">Đang tải nhóm thuộc tính...</div>
+        <div className="p-6 flex items-center gap-2">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Đang tải sản phẩm...</span>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (!product) {
+    return (
+      <AdminLayout>
+        <div className="p-6">
+          Không tìm thấy sản phẩm.
+          <div className="mt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/admin/adminProduct")}
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Quay lại danh sách
+            </Button>
+          </div>
+        </div>
       </AdminLayout>
     );
   }
 
   return (
     <AdminLayout>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Nhóm thuộc tính</h1>
-        <p className="text-muted-foreground">
-          Quản lý các nhóm thuộc tính như Màu sắc, Kích thước, Dung lượng...
-        </p>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-0"
+            onClick={() => navigate("/admin/adminProduct")}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Quay lại
+          </Button>
+        </div>
+
+        <Card className="p-4">
+          <h1 className="text-2xl font-semibold mb-1">
+            Thuộc tính sản phẩm
+          </h1>
+          <p className="text-sm text-muted-foreground">{product.name}</p>
+        </Card>
+
+        <ProductAttributeGroupsForm productId={productId} />
       </div>
-
-      <Card className="p-4 mb-6 flex gap-2">
-        <Input
-          placeholder="Tên nhóm thuộc tính mới (vd: Màu sắc)"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-        />
-        <Button onClick={handleCreate}>Thêm nhóm</Button>
-      </Card>
-
-      <Card className="overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-muted/50 border-b border-border">
-            <tr>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Tên nhóm</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Kiểu</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Bắt buộc</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Trạng thái</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {groups.map((g) => (
-              <tr key={g._id}>
-                <td className="px-4 py-3">{g.name}</td>
-                <td className="px-4 py-3">{g.type || "-"}</td>
-                <td className="px-4 py-3">{g.isRequired ? "Có" : "Không"}</td>
-                <td className="px-4 py-3">
-                  {g.isActive ? "Đang dùng" : "Đã ẩn"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
     </AdminLayout>
   );
 };
 
-export default AdminAttributeGroups;
+export default AdminProductAttributes;

@@ -96,6 +96,10 @@ const resolveImageUrl = (url?: string | null) => {
 const money = (n: number | null | undefined) =>
   Number(n ?? 0).toLocaleString("vi-VN");
 
+// helper check ObjectId
+const isValidObjectId = (value?: string) =>
+  !!value && /^[0-9a-fA-F]{24}$/.test(value);
+
 /* ========= form Stripe ========= */
 
 function StripePaymentForm({ order }: { order: Order }) {
@@ -104,7 +108,7 @@ function StripePaymentForm({ order }: { order: Order }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  const amount = Number(order?.totalAmount ?? order?.total ?? 0);
+  const amount = Number(order?.totalAmount ?? order?.total ?? 0); // chỉ dùng để hiển thị
 
   const payNow = async () => {
     if (!stripe || !elements) return;
@@ -112,8 +116,7 @@ function StripePaymentForm({ order }: { order: Order }) {
     try {
       setLoading(true);
 
-      const intent = await createPaymentIntent(amount, order._id);
-
+      const intent = await createPaymentIntent(order._id);
       const card = elements.getElement(CardElement);
 
       const result = await stripe.confirmCardPayment(intent.clientSecret, {
@@ -166,16 +169,21 @@ function StripePaymentForm({ order }: { order: Order }) {
 /* ========= page ========= */
 
 export default function Payment() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  const validId = isValidObjectId(id);
 
   const loadOrder = async () => {
     try {
       const res = await getOrderById(id!); // API trả json.data -> chính là order
       const orderData: Order =
-        (res as any)?.data?.data ?? (res as any)?.data ?? (res as any).order ?? (res as any);
+        (res as any)?.data?.data ??
+        (res as any)?.data ??
+        (res as any).order ??
+        (res as any);
       setOrder(orderData);
     } catch (err: any) {
       toast.error(err.message || "Không tìm thấy đơn hàng");
@@ -186,10 +194,41 @@ export default function Payment() {
   };
 
   useEffect(() => {
-    if (id) loadOrder();
-  }, [id]);
+    if (validId) {
+      loadOrder();
+    } else {
+      // id không phải ObjectId (ví dụ "success", "cancel") => không gọi API
+      setLoading(false);
+    }
+  }, [validId, id]);
 
   if (loading) return <div className="p-10">Loading...</div>;
+
+  // Trường hợp id không hợp lệ (không phải ObjectId)
+  if (!validId) {
+    return (
+      <>
+        <Header />
+        <main className="container mx-auto py-16">
+          <Card className="max-w-md mx-auto text-center">
+            <CardHeader>
+              <CardTitle>Liên kết thanh toán không hợp lệ</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Có thể bạn vừa quay lại từ cổng thanh toán hoặc đường dẫn này
+                không đúng. Vui lòng kiểm tra lại đơn hàng của bạn.
+              </p>
+              <Button onClick={() => navigate("/orders")}>
+                Xem đơn hàng của tôi
+              </Button>
+            </CardContent>
+          </Card>
+        </main>
+        <Footer />
+      </>
+    );
+  }
 
   if (!order) {
     return (
@@ -408,13 +447,13 @@ export default function Payment() {
                       {isPaid
                         ? "Đơn hàng đã được thanh toán"
                         : "Đơn hàng không sử dụng thanh toán online"}
-                    </CardTitle>
+                  </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground">
                     <p>
                       {isPaid
                         ? "Bạn không cần thanh toán thêm. Có thể xem chi tiết đơn hàng ở trang Đơn hàng của tôi."
-                        : "Phương thức thanh toán của đơn này không phải Stripe (ví dụ COD). Bạn không cần thanh toán tại đây."}
+                        : "Phương thức thanh toán của đơn này không phải Stripe (ví dụ COD, PayOS). Bạn không cần thanh toán tại đây."}
                     </p>
                     <Button
                       className="mt-4"

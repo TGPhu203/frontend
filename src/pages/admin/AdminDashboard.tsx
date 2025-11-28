@@ -1,3 +1,4 @@
+// src/pages/admin/AdminDashboard.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -11,10 +12,20 @@ import {
   Users,
   DollarSign,
   TrendingUp,
-  AlertCircle,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+
+// Recharts
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8888";
@@ -39,42 +50,67 @@ type Cards = {
   customers: SimpleCard;
 };
 
-type RecentOrder = {
-  id: string;
-  orderNumber?: string;
-  customerName: string;
-  totalAmount: number;
-  status: string;
-  createdAt: string;
-};
-
-type ServiceRequest = {
-  id: string | number;
-  type: string;
-  status: "processing" | "pending" | "completed";
-  priority: "high" | "medium" | "low";
-};
-
 type DashboardResponse = {
   status: string;
   data: {
     cards: Cards;
-    recentOrders: RecentOrder[];
-    serviceRequests?: ServiceRequest[];
   };
 };
 
+// ==== TYPES THỐNG KÊ DOANH THU ====
+type RevenueRange = "daily" | "monthly" | "yearly";
+
+type RevenueSummary = {
+  totalRevenue: number;
+  totalOrders: number;
+};
+
+type DailyItem = {
+  date: string;
+  totalRevenue: number;
+  totalOrders: number;
+};
+
+type MonthlyItem = {
+  year: number;
+  month: number;
+  label: string;
+  totalRevenue: number;
+  totalOrders: number;
+};
+
+type YearlyItem = {
+  year: number;
+  totalRevenue: number;
+  totalOrders: number;
+};
+
+// Dữ liệu đưa vào chart
+type ChartPoint = {
+  label: string;
+  revenue: number;
+  orders: number;
+};
+
+const formatCurrencyMillions = (amount: number | undefined) => {
+  if (!amount || amount <= 0) return "₫0";
+  const millions = amount / 1_000_000;
+  return `₫${millions.toFixed(1)}M`;
+};
+
+const formatMoneyFull = (n: number | undefined | null) =>
+  Number(n || 0).toLocaleString("vi-VN") + "₫";
+
 const AdminDashboard = () => {
   const [cards, setCards] = useState<Cards | null>(null);
-  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
-  const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const formatCurrencyMillions = (amount: number | undefined) => {
-    if (!amount || amount <= 0) return "₫0";
-    const millions = amount / 1_000_000;
-    return `₫${millions.toFixed(1)}M`;
-  };
+  // state cho biểu đồ
+  const [revenueRange, setRevenueRange] = useState<RevenueRange>("monthly");
+  const [chartData, setChartData] = useState<ChartPoint[]>([]);
+  const [revenueSummary, setRevenueSummary] =
+    useState<RevenueSummary | null>(null);
+  const [loadingChart, setLoadingChart] = useState(false);
 
   const formatChangePercent = (
     percent: number | null | undefined,
@@ -94,19 +130,6 @@ const AdminDashboard = () => {
       );
       const data = res.data.data;
       setCards(data.cards);
-      setRecentOrders(data.recentOrders || []);
-
-      if (data.serviceRequests && data.serviceRequests.length > 0) {
-        setServiceRequests(data.serviceRequests);
-      } else {
-        setServiceRequests([
-          { id: 1, type: "Bảo hành", status: "processing", priority: "high" },
-          { id: 2, type: "Sửa chữa", status: "pending", priority: "medium" },
-          { id: 3, type: "Tư vấn", status: "processing", priority: "low" },
-          { id: 4, type: "Lắp đặt", status: "pending", priority: "high" },
-          { id: 5, type: "Kiểm tra", status: "completed", priority: "medium" },
-        ]);
-      }
     } catch (err) {
       console.error("Error load dashboard:", err);
     } finally {
@@ -114,9 +137,68 @@ const AdminDashboard = () => {
     }
   };
 
+  // GỌI /api/admin/stats/revenue/:mode GIỐNG AdminRevenueStats
+  const loadRevenueChart = async (range: RevenueRange) => {
+    try {
+      setLoadingChart(true);
+
+      const res = await axios.get(
+        `${API_BASE_URL}/api/admin/stats/revenue/${range}`,
+        {
+          // Dashboard không lọc from/to -> để trống params
+          withCredentials: true,
+        }
+      );
+
+      const data = res.data?.data;
+      const items = data?.items || [];
+
+      setRevenueSummary(
+        data?.summary || { totalRevenue: 0, totalOrders: 0 }
+      );
+
+      const mapped: ChartPoint[] = (items as any[]).map((item) => {
+        if (range === "daily") {
+          const it = item as DailyItem;
+          return {
+            label: it.date,
+            revenue: it.totalRevenue,
+            orders: it.totalOrders,
+          };
+        }
+        if (range === "monthly") {
+          const it = item as MonthlyItem;
+          return {
+            label: it.label,
+            revenue: it.totalRevenue,
+            orders: it.totalOrders,
+          };
+        }
+        const it = item as YearlyItem;
+        return {
+          label: String(it.year),
+          revenue: it.totalRevenue,
+          orders: it.totalOrders,
+        };
+      });
+
+      setChartData(mapped);
+    } catch (err) {
+      console.error("Error load revenue chart:", err);
+      setChartData([]);
+      setRevenueSummary(null);
+    } finally {
+      setLoadingChart(false);
+    }
+  };
+
   useEffect(() => {
     loadDashboard();
   }, []);
+
+  useEffect(() => {
+    loadRevenueChart(revenueRange);
+  }, [revenueRange]);
 
   const today = new Date().toLocaleDateString("vi-VN", {
     weekday: "long",
@@ -125,33 +207,24 @@ const AdminDashboard = () => {
     year: "numeric",
   });
 
+  const totalInChart =
+    revenueSummary?.totalRevenue ??
+    chartData.reduce((sum, p) => sum + p.revenue, 0);
+
   return (
     <AdminLayout>
-      {/* dùng bg-background từ index.css, bỏ slate-* */}
       <div className="min-h-screen bg-background px-4 py-6 md:px-8 md:py-8">
-        {/* Header */}
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary mb-3">
-              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-              Bảng điều khiển tổng quan
-            </div>
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">
-              Dashboard
-            </h1>
-            <p className="text-sm md:text-base text-muted-foreground">
-              Nắm bắt nhanh tình hình kinh doanh và dịch vụ trong hệ thống của bạn.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex flex-col text-right text-xs text-muted-foreground">
+        {/* header đơn giản */}
+        <div className="mb-7 flex flex-col gap-2 md:flex-row md:items-right md:justify-between">
+          <div className="flex items-right gap-3 text-xs text-muted-foreground">
+            <div className="hidden flex-col text-left md:flex">
               <span>Hôm nay</span>
               <span className="font-medium text-foreground">{today}</span>
             </div>
             <Button
               variant="outline"
               size="sm"
-              className="rounded-full border-dashed"
+              className="h-8"
               onClick={loadDashboard}
             >
               <TrendingUp className="mr-2 h-4 w-4" />
@@ -160,52 +233,47 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Stats + highlight */}
-        <div className="grid gap-6 mb-10 lg:grid-cols-12">
-          {/* Revenue highlight card */}
-          <Card className="relative overflow-hidden rounded-2xl border-none bg-gradient-to-r from-primary via-indigo-500 to-sky-500 text-primary-foreground shadow-xl lg:col-span-5">
-            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top,_#fff_0,_transparent_50%)]" />
-            <div className="relative flex h-full flex-col justify-between p-6 md:p-7">
+        {/* khối stat */}
+        <div className="mb-8 grid gap-6 lg:grid-cols-12">
+          {/* doanh thu tổng */}
+          <Card className="lg:col-span-5 rounded-md border bg-card">
+            <div className="flex h-full flex-col justify-between p-5 md:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium text-primary-foreground/80">
+                  <p className="text-xs font-medium text-muted-foreground">
                     Doanh thu tổng
                   </p>
-                  <p className="mt-3 text-3xl md:text-4xl font-semibold">
+                  <p className="mt-2 text-2xl font-semibold text-foreground md:text-3xl">
                     {formatCurrencyMillions(cards?.revenue?.value ?? 0)}
                   </p>
-                  <p className="mt-2 text-xs md:text-sm text-primary-foreground/80">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     {cards?.revenue?.changePercent != null
                       ? formatChangePercent(
-                        cards.revenue.changePercent,
-                        "so với tháng trước"
-                      )
+                          cards.revenue.changePercent,
+                          "so với tháng trước"
+                        )
                       : "Chưa có dữ liệu so sánh"}
                   </p>
                 </div>
-                <div className="flex flex-col items-end gap-3">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
-                    <DollarSign className="h-3 w-3" />
-                    <span>Hiệu suất doanh thu</span>
+                <div className="flex flex-col items-end gap-2 text-xs text-muted-foreground">
+                  <div className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1">
+                    <DollarSign className="h-3.5 w-3.5 text-primary" />
+                    <span>Doanh thu</span>
                   </div>
-                  <div className="h-16 w-28 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center text-[10px] text-primary-foreground/80">
-                    Biểu đồ mini
-                    <br />
-                    (có thể thêm sau)
-                  </div>
+                  <span>Số liệu lấy từ đơn đã xác nhận.</span>
                 </div>
               </div>
 
-              <div className="mt-6 grid grid-cols-2 gap-4 text-xs md:text-sm">
-                <div className="rounded-xl bg-black/10 px-3 py-2 backdrop-blur">
-                  <p className="text-primary-foreground/80">Tháng này</p>
-                  <p className="mt-1 font-semibold">
+              <div className="mt-4 grid grid-cols-2 gap-3 text-xs md:text-sm">
+                <div className="rounded-md border bg-muted/40 px-3 py-2">
+                  <p className="text-muted-foreground">Tháng này</p>
+                  <p className="mt-1 font-semibold text-foreground">
                     {formatCurrencyMillions(cards?.revenue?.thisMonth ?? 0)}
                   </p>
                 </div>
-                <div className="rounded-xl bg-black/10 px-3 py-2 backdrop-blur">
-                  <p className="text-primary-foreground/80">Tháng trước</p>
-                  <p className="mt-1 font-semibold">
+                <div className="rounded-md border bg-muted/40 px-3 py-2">
+                  <p className="text-muted-foreground">Tháng trước</p>
+                  <p className="mt-1 font-semibold text-foreground">
                     {formatCurrencyMillions(cards?.revenue?.lastMonth ?? 0)}
                   </p>
                 </div>
@@ -213,46 +281,45 @@ const AdminDashboard = () => {
             </div>
           </Card>
 
-          {/* 3 stat cards nhỏ */}
+          {/* 3 stat nhỏ */}
           <div className="grid gap-4 sm:grid-cols-2 lg:col-span-7 lg:grid-cols-3">
             <StatCard
               title="Đơn hàng mới"
               value={String(cards?.newOrders?.value ?? 0)}
-              change="Trong 7 ngày gần đây"
+              change="7 ngày gần đây"
               icon={ShoppingCart}
               trend="up"
               variant="default"
               loading={loading}
             />
 
-            {/* Sản phẩm */}
             <StatCard
               title="Sản phẩm"
               value={String(cards?.products?.value ?? 0)}
               change={
-                cards?.products?.newThisMonth && cards.products.newThisMonth > 0
-                  ? `${cards.products.newThisMonth} sản phẩm mới`
-                  : "Không có sản phẩm mới"
+                cards?.products?.newThisMonth &&
+                cards.products.newThisMonth > 0
+                  ? `${cards.products.newThisMonth} sản phẩm mới trong tháng`
+                  : "Chưa có sản phẩm mới"
               }
               icon={Package}
-              variant="default"
-              // trend: có sản phẩm mới -> mũi tên xanh, không thì neutral
               trend={
-                cards?.products?.newThisMonth && cards.products.newThisMonth > 0
+                cards?.products?.newThisMonth &&
+                cards.products.newThisMonth > 0
                   ? "up"
                   : undefined
               }
+              variant="default"
               loading={loading}
             />
-
 
             <StatCard
               title="Khách hàng"
               value={String(cards?.customers?.value ?? 0)}
               change={
                 cards?.customers?.newThisMonth
-                  ? `+${cards.customers.newThisMonth} khách mới trong tháng`
-                  : "Không có khách mới trong tháng"
+                  ? `+${cards.customers.newThisMonth} khách mới`
+                  : "Chưa có khách mới trong tháng"
               }
               icon={Users}
               trend="up"
@@ -262,207 +329,105 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="grid grid-cols-1 gap-6 mb-10 lg:grid-cols-2">
-          {/* Recent Orders */}
-          <Card className="rounded-2xl border border-border bg-card shadow-sm">
-            <div className="flex items-center justify-between border-b border-border px-6 py-4">
-              <div>
-                <h3 className="text-base md:text-lg font-semibold text-card-foreground">
-                  Đơn hàng gần đây
-                </h3>
-                <p className="text-xs md:text-sm text-muted-foreground">
-                  5 đơn hàng mới nhất trong hệ thống
-                </p>
-              </div>
-              <Button variant="outline" size="sm" className="rounded-full">
-                Xem tất cả
-              </Button>
-            </div>
-            <div className="px-4 md:px-6 py-4 space-y-3">
-              {loading && recentOrders.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Đang tải dữ liệu...
-                </p>
-              ) : recentOrders.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Chưa có đơn hàng nào.
-                </p>
-              ) : (
-                recentOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="group flex items-center justify-between rounded-xl border border-transparent px-2 py-3 transition-colors hover:border-border hover:bg-muted"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <ShoppingCart className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-card-foreground">
-                          {order.orderNumber
-                            ? `Đơn hàng #${order.orderNumber}`
-                            : `Đơn hàng ${order.id}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {order.customerName}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right space-y-1">
-                      <p className="text-sm font-semibold text-card-foreground">
-                        {formatCurrencyMillions(order.totalAmount)}
-                      </p>
-                      <span className="inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
-                        {order.status === "completed"
-                          ? "Hoàn thành"
-                          : order.status === "pending"
-                            ? "Đang xử lý"
-                            : order.status}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
-
-          {/* Service Requests */}
-          <Card className="rounded-2xl border border-border bg-card shadow-sm">
-            <div className="flex items-center justify-between border-b border-border px-6 py-4">
-              <div>
-                <h3 className="text-base md:text-lg font-semibold text-card-foreground">
-                  Yêu cầu dịch vụ
-                </h3>
-                <p className="text-xs md:text-sm text-muted-foreground">
-                  Các yêu cầu kỹ thuật cần được xử lý
-                </p>
-              </div>
-              <Button variant="outline" size="sm" className="rounded-full">
-                Xem tất cả
-              </Button>
-            </div>
-            <div className="px-4 md:px-6 py-4 space-y-3">
-              {serviceRequests.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Chưa có yêu cầu dịch vụ.
-                </p>
-              ) : (
-                serviceRequests.map((service) => (
-                  <div
-                    key={service.id}
-                    className="group flex items-center justify-between rounded-xl border border-transparent px-2 py-3 transition-colors hover:border-border hover:bg-muted"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`h-10 w-10 rounded-xl flex items-center justify-center ${service.priority === "high"
-                            ? "bg-destructive/10"
-                            : service.priority === "medium"
-                              ? "bg-warning/10"
-                              : "bg-success/10"
-                          }`}
-                      >
-                        <AlertCircle
-                          className={`h-5 w-5 ${service.priority === "high"
-                              ? "text-destructive"
-                              : service.priority === "medium"
-                                ? "text-warning"
-                                : "text-success"
-                            }`}
-                        />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-card-foreground">
-                          {service.type}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Mã YC: YC-{2000 + Number(service.id)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${service.status === "completed"
-                            ? "bg-success/10 text-success"
-                            : service.status === "processing"
-                              ? "bg-primary/10 text-primary"
-                              : "bg-warning/10 text-warning"
-                          }`}
-                      >
-                        {service.status === "completed"
-                          ? "Hoàn thành"
-                          : service.status === "processing"
-                            ? "Đang xử lý"
-                            : "Chờ xử lý"}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <Card className="rounded-2xl border border-border bg-card shadow-sm">
-          <div className="flex items-center justify-between px-6 pt-5 pb-4">
+        {/* BIỂU ĐỒ DOANH THU TỔNG */}
+        <Card className="mb-8 rounded-md border bg-card">
+          <div className="flex items-center justify-between border-b px-5 py-4">
             <div>
-              <h3 className="text-base md:text-lg font-semibold text-card-foreground">
-                Thao tác nhanh
+              <h3 className="text-base font-semibold text-card-foreground md:text-lg">
+                Biểu đồ doanh thu
               </h3>
-              <p className="text-xs md:text-sm text-muted-foreground">
-                Thực hiện các công việc thường dùng chỉ với một cú nhấp chuột.
+              <p className="text-xs text-muted-foreground md:text-sm">
+                Tổng doanh thu theo{" "}
+                {revenueRange === "daily"
+                  ? "ngày"
+                  : revenueRange === "monthly"
+                  ? "tháng"
+                  : "năm"}
+                .
               </p>
             </div>
-          </div>
-          <div className="px-4 md:px-6 pb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button className="group h-auto py-5 md:py-6 flex flex-col items-start md:items-center gap-2 rounded-2xl border-none bg-gradient-to-r from-primary to-indigo-500 text-primary-foreground shadow-md">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
-                    <Package className="h-5 w-5" />
-                  </div>
-                  <span className="text-sm font-semibold">
-                    Thêm sản phẩm mới
-                  </span>
-                </div>
-                <span className="text-xs text-primary-foreground/80 md:text-center">
-                  Tạo nhanh sản phẩm và quản lý trong kho.
-                </span>
-              </Button>
-
+            <div className="inline-flex gap-2 rounded-md bg-muted/60 p-1 text-xs">
               <Button
-                className="h-auto py-5 md:py-6 flex flex-col items-start md:items-center gap-2 rounded-2xl border border-border bg-background hover:border-primary/40 hover:bg-primary/[0.03]"
-                variant="outline"
+                size="sm"
+                variant={revenueRange === "daily" ? "default" : "ghost"}
+                className="h-7 px-2"
+                onClick={() => setRevenueRange("daily")}
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/5">
-                    <ShoppingCart className="h-5 w-5 text-primary" />
-                  </div>
-                  <span className="text-sm font-semibold">Tạo đơn hàng</span>
-                </div>
-                <span className="text-xs text-muted-foreground md:text-center">
-                  Lập đơn bán hàng và theo dõi trạng thái.
-                </span>
+                Ngày
               </Button>
-
               <Button
-                className="h-auto py-5 md:py-6 flex flex-col items-start md:items-center gap-2 rounded-2xl border border-border bg-background hover:border-primary/40 hover:bg-primary/[0.03]"
-                variant="outline"
+                size="sm"
+                variant={revenueRange === "monthly" ? "default" : "ghost"}
+                className="h-7 px-2"
+                onClick={() => setRevenueRange("monthly")}
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/5">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                  </div>
-                  <span className="text-sm font-semibold">Xem báo cáo</span>
-                </div>
-                <span className="text-xs text-muted-foreground md:text-center">
-                  Phân tích doanh thu, khách hàng và sản phẩm.
-                </span>
+                Tháng
+              </Button>
+              <Button
+                size="sm"
+                variant={revenueRange === "yearly" ? "default" : "ghost"}
+                className="h-7 px-2"
+                onClick={() => setRevenueRange("yearly")}
+              >
+                Năm
               </Button>
             </div>
           </div>
+
+          <div className="px-5 py-4">
+            {loadingChart ? (
+              <p className="text-sm text-muted-foreground">
+                Đang tải dữ liệu biểu đồ...
+              </p>
+            ) : chartData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Chưa có dữ liệu doanh thu cho khoảng thời gian này.
+              </p>
+            ) : (
+              <>
+                <div className="mb-3 text-sm text-muted-foreground">
+                  Tổng:{" "}
+                  <span className="font-semibold text-foreground">
+                    {formatCurrencyMillions(totalInChart)}
+                  </span>
+                </div>
+
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="label" />
+                      <YAxis
+                        tickFormatter={(v) =>
+                          Number(v).toLocaleString("vi-VN")
+                        }
+                      />
+                      <Tooltip
+                        formatter={(value: any, name: string) => {
+                          if (name === "revenue") {
+                            return formatMoneyFull(value);
+                          }
+                          return value;
+                        }}
+                        labelFormatter={(label) => label}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="revenue"
+                        name="Doanh thu"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
+            )}
+          </div>
         </Card>
+
+        {/* thao tác nhanh */}
+       
       </div>
     </AdminLayout>
   );

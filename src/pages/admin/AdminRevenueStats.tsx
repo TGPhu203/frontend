@@ -115,16 +115,19 @@ const AdminRevenueStats = () => {
     mode === "daily"
       ? dailyData
       : mode === "monthly"
-      ? monthlyData
-      : yearlyData;
+        ? monthlyData
+        : yearlyData;
 
   const loadRevenue = async (m: RevenueMode) => {
     try {
       setLoading(true);
 
       const params: any = {};
-      if (from) params.from = from;
-      if (to) params.to = to;
+      if (from && to) {
+        params.from = from;
+        params.to = to;
+      }
+
 
       const res = await axios.get(
         `${API_BASE_URL}/api/admin/stats/revenue/${m}`,
@@ -154,9 +157,13 @@ const AdminRevenueStats = () => {
   };
 
   useEffect(() => {
+    // khi đổi mode, reset khoảng ngày để backend dùng fallback
+    setFrom("");
+    setTo("");
     loadRevenue(mode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
+
 
   const handleApplyFilter = () => {
     loadRevenue(mode);
@@ -315,8 +322,8 @@ const AdminRevenueStats = () => {
                     ({mode === "daily"
                       ? "theo ngày"
                       : mode === "monthly"
-                      ? "theo tháng"
-                      : "theo năm"})
+                        ? "theo tháng"
+                        : "theo năm"})
                   </span>
                 </CardTitle>
               </CardHeader>
@@ -385,8 +392,8 @@ const AdminRevenueStats = () => {
                           {mode === "daily"
                             ? "Ngày"
                             : mode === "monthly"
-                            ? "Tháng"
-                            : "Năm"}
+                              ? "Tháng"
+                              : "Năm"}
                         </TableHead>
                         <TableHead>Doanh thu</TableHead>
                         <TableHead>Đơn hàng</TableHead>

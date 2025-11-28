@@ -1,3 +1,4 @@
+// src/pages/admin/AdminCart.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -20,17 +21,29 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
-import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { RefreshCw, Search } from "lucide-react";
 
-import { adminGetAllOrders } from "@/api/orderApi";
+import { adminGetAllOrders, adminUpdateOrderStatus } from "@/api/orderApi";
 
 const AdminCart = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+
+  // dialog
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [statusValue, setStatusValue] = useState<string>("");
+  const [savingStatus, setSavingStatus] = useState(false);
 
   const load = async () => {
     try {
@@ -130,6 +143,52 @@ const AdminCart = () => {
       <Badge variant="outline" className="text-muted-foreground">
         {status || "N/A"}
       </Badge>
+    );
+  };
+
+  // mở dialog xem chi tiết + chuẩn bị value trạng thái
+  const handleOpenDetail = (order: any) => {
+    setSelectedOrder(order);
+    setStatusValue(order.status || "");
+    setDetailOpen(true);
+  };
+
+  const handleUpdateStatus = async () => {
+    if (!selectedOrder) return;
+    if (!statusValue) {
+      toast.error("Vui lòng chọn trạng thái");
+      return;
+    }
+
+    try {
+      setSavingStatus(true);
+      const updated = await adminUpdateOrderStatus(
+        selectedOrder._id,
+        statusValue
+      );
+
+      // cập nhật vào list orders
+      setOrders((prev) =>
+        prev.map((o) => (o._id === updated._id ? { ...o, ...updated } : o))
+      );
+      setSelectedOrder((prev: any) => (prev ? { ...prev, ...updated } : prev));
+
+      toast.success("Đã cập nhật trạng thái đơn hàng");
+      setDetailOpen(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Không thể cập nhật trạng thái đơn hàng");
+    } finally {
+      setSavingStatus(false);
+    }
+  };
+
+  const userLabelOf = (o: any) => {
+    const userObj = o.userId;
+    return (
+      userObj?.email ||
+      (userObj?.firstName || userObj?.lastName
+        ? `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim()
+        : "N/A")
     );
   };
 
@@ -238,73 +297,168 @@ const AdminCart = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredOrders.map((o) => {
-                      const userObj = o.userId;
-                      const userLabel =
-                        userObj?.email ||
-                        (userObj?.firstName || userObj?.lastName
-                          ? `${userObj.firstName || ""} ${
-                              userObj.lastName || ""
-                            }`.trim()
-                          : "N/A");
+                    filteredOrders.map((o) => (
+                      <TableRow
+                        key={o._id}
+                        className="hover:bg-muted/40 transition-colors"
+                      >
+                        <TableCell className="font-medium">
+                          {o.orderNumber || o._id}
+                        </TableCell>
 
-                      return (
-                        <TableRow
-                          key={o._id}
-                          className="hover:bg-muted/40 transition-colors"
-                        >
-                          <TableCell className="font-medium">
-                            {o.orderNumber || o._id}
-                          </TableCell>
+                        <TableCell className="text-sm">
+                          {userLabelOf(o)}
+                        </TableCell>
 
-                          <TableCell className="text-sm">
-                            {userLabel}
-                          </TableCell>
+                        <TableCell className="text-sm">
+                          {o.totalAmount?.toLocaleString("vi-VN")}{" "}
+                          {o.currency || "VND"}
+                        </TableCell>
 
-                          <TableCell className="text-sm">
-                            {o.totalAmount?.toLocaleString("vi-VN")}{" "}
-                            {o.currency || "VND"}
-                          </TableCell>
+                        <TableCell className="text-sm space-y-1">
+                          {renderPaymentBadge(o.paymentStatus)}
+                          {o.paymentMethod && (
+                            <div className="text-[11px] text-muted-foreground">
+                              {o.paymentMethod.toUpperCase()}
+                            </div>
+                          )}
+                        </TableCell>
 
-                          <TableCell className="text-sm space-y-1">
-                            {renderPaymentBadge(o.paymentStatus)}
-                            {o.paymentMethod && (
-                              <div className="text-[11px] text-muted-foreground">
-                                {o.paymentMethod.toUpperCase()}
-                              </div>
-                            )}
-                          </TableCell>
+                        <TableCell className="text-sm">
+                          {renderStatusBadge(o.status)}
+                        </TableCell>
 
-                          <TableCell className="text-sm">
-                            {renderStatusBadge(o.status)}
-                          </TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {o.createdAt
+                            ? new Date(o.createdAt).toLocaleString("vi-VN")
+                            : ""}
+                        </TableCell>
 
-                          <TableCell className="text-sm whitespace-nowrap">
-                            {o.createdAt
-                              ? new Date(o.createdAt).toLocaleString("vi-VN")
-                              : ""}
-                          </TableCell>
-
-                          <TableCell className="text-right">
-                            <Link to={`/admin/order/${o._id}`}>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="rounded-full"
-                              >
-                                Xem chi tiết
-                              </Button>
-                            </Link>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full"
+                            onClick={() => handleOpenDetail(o)}
+                          >
+                            Xem chi tiết
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
                   )}
                 </TableBody>
               </Table>
             </div>
           </CardContent>
         </Card>
+
+        {/* Dialog chi tiết + set trạng thái */}
+        <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                Chi tiết đơn{" "}
+                {selectedOrder?.orderNumber || selectedOrder?._id}
+              </DialogTitle>
+              <DialogDescription>
+                Xem thông tin nhanh và cập nhật trạng thái đơn hàng.
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedOrder && (
+              <div className="space-y-4 text-sm mt-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      Khách hàng
+                    </p>
+                    <p className="font-medium">{userLabelOf(selectedOrder)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      Tổng tiền
+                    </p>
+                    <p className="font-semibold text-primary">
+                      {selectedOrder.totalAmount?.toLocaleString("vi-VN")}{" "}
+                      {selectedOrder.currency || "VND"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      Thanh toán
+                    </p>
+                    <div className="mt-1">
+                      {renderPaymentBadge(selectedOrder.paymentStatus)}
+                      {selectedOrder.paymentMethod && (
+                        <div className="text-[11px] text-muted-foreground mt-1">
+                          Phương thức:{" "}
+                          {selectedOrder.paymentMethod.toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      Ngày tạo
+                    </p>
+                    <p className="mt-1">
+                      {selectedOrder.createdAt
+                        ? new Date(
+                            selectedOrder.createdAt
+                          ).toLocaleString("vi-VN")
+                        : ""}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Trạng thái hiện tại
+                  </p>
+                  {renderStatusBadge(selectedOrder.status)}
+                </div>
+
+                <div className="border-t pt-3 space-y-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Cập nhật trạng thái đơn hàng
+                    </label>
+                    <select
+                      className="w-full rounded-md border px-2 py-1.5 text-sm bg-background"
+                      value={statusValue}
+                      onChange={(e) => setStatusValue(e.target.value)}
+                    >
+                      <option value="">Chọn trạng thái...</option>
+                      <option value="pending">Chờ xử lý</option>
+                      <option value="processing">Đang xử lý</option>
+                      <option value="delivered">Đã giao</option>
+                      <option value="completed">Hoàn thành</option>
+                      <option value="cancelled">Đã hủy</option>
+                    </select>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDetailOpen(false)}
+                    >
+                      Đóng
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleUpdateStatus}
+                      disabled={savingStatus}
+                    >
+                      {savingStatus ? "Đang lưu..." : "Lưu thay đổi"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );
