@@ -249,9 +249,9 @@ const AdminDashboard = () => {
                   <p className="mt-2 text-xs text-muted-foreground">
                     {cards?.revenue?.changePercent != null
                       ? formatChangePercent(
-                          cards.revenue.changePercent,
-                          "so với tháng trước"
-                        )
+                        cards.revenue.changePercent,
+                        "so với tháng trước"
+                      )
                       : "Chưa có dữ liệu so sánh"}
                   </p>
                 </div>
@@ -298,14 +298,14 @@ const AdminDashboard = () => {
               value={String(cards?.products?.value ?? 0)}
               change={
                 cards?.products?.newThisMonth &&
-                cards.products.newThisMonth > 0
+                  cards.products.newThisMonth > 0
                   ? `${cards.products.newThisMonth} sản phẩm mới trong tháng`
                   : "Chưa có sản phẩm mới"
               }
               icon={Package}
               trend={
                 cards?.products?.newThisMonth &&
-                cards.products.newThisMonth > 0
+                  cards.products.newThisMonth > 0
                   ? "up"
                   : undefined
               }
@@ -341,8 +341,8 @@ const AdminDashboard = () => {
                 {revenueRange === "daily"
                   ? "ngày"
                   : revenueRange === "monthly"
-                  ? "tháng"
-                  : "năm"}
+                    ? "tháng"
+                    : "năm"}
                 .
               </p>
             </div>
@@ -398,6 +398,7 @@ const AdminDashboard = () => {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="label" />
                       <YAxis
+                        width={100}
                         tickFormatter={(v) =>
                           Number(v).toLocaleString("vi-VN")
                         }
@@ -427,7 +428,7 @@ const AdminDashboard = () => {
         </Card>
 
         {/* thao tác nhanh */}
-       
+
       </div>
     </AdminLayout>
   );

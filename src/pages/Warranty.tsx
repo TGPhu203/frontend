@@ -361,9 +361,8 @@ const Warranty = () => {
             }}
             className="space-y-8"
           >
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3">
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
               <TabsTrigger value="lookup">Tra cứu</TabsTrigger>
-              <TabsTrigger value="packages">Gói bảo hành</TabsTrigger>
               <TabsTrigger value="history">Lịch sử</TabsTrigger>
             </TabsList>
 

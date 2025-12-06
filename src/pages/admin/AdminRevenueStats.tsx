@@ -371,21 +371,20 @@ const AdminRevenueStats = () => {
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
+                    <LineChart
+                      data={chartData}
+                      margin={{ top: 16, right: 24, left: 80, bottom: 8 }} // 👈 chừa rộng bên trái
+                    >
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="label" />
                       <YAxis
-                        tickFormatter={(v) =>
-                          Number(v).toLocaleString("vi-VN")
-                        }
+                        width={60} // 👈 tăng chiều rộng vùng trục tung
+                        tickFormatter={(v) => Number(v).toLocaleString("vi-VN")}
                       />
                       <Tooltip
-                        formatter={(value: any, name: string) => {
-                          if (name === "revenue") {
-                            return formatMoney(value);
-                          }
-                          return value;
-                        }}
+                        formatter={(value: any, name: string) =>
+                          name === "revenue" ? formatMoney(value) : value
+                        }
                         labelFormatter={(label) => label}
                       />
                       <Line
@@ -399,6 +398,7 @@ const AdminRevenueStats = () => {
                   </ResponsiveContainer>
                 )}
               </CardContent>
+
             </Card>
 
             {/* Table */}
