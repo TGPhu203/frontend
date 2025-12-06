@@ -98,18 +98,8 @@ const firstImageUrl = firstImage
             </Link>
 
             <nav className="hidden items-center gap-6 md:flex">
-              <Link
-                to="/products"
-                className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
-              >
-                Sản phẩm
-              </Link>
-              <Link
-                to="/categories"
-                className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
-              >
-                Danh mục
-              </Link>
+              
+              
               <Link
                 to="/warranty"
                 className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"

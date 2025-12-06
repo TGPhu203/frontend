@@ -51,7 +51,7 @@ const heroBanners = [
   },
   {
     id: 2,
-    image: "src/img/download (5).jpg",
+    image: "src/img/z6007026390622_d3498950427f46213d0ca0418baeb0b8.jpg",
     title: "Laptop cho học tập và văn phòng",
     subtitle: "Giảm giá cho sinh viên, tặng balo và chuột không dây.",
   },
