@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { applyCoupon, getAvailableCoupons } from "@/api/couponApi";
 import { useEffect, useState } from "react";
-import { getCart, updateCartItem, removeCartItem } from "@/api/cartApi";
+import { getCart, updateCartItem, removeCartItem, clearCart } from "@/api/cartApi";
 import { BASE_ORIGIN } from "@/api/Api";
 import { toast } from "sonner";
 
@@ -41,12 +41,16 @@ const Cart = () => {
   const [couponLoading, setCouponLoading] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
   const [loadingAvailableCoupons, setLoadingAvailableCoupons] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const syncSelectionFromCart = (cartData: any) => {
+    setSelectedIds(cartData?.items?.map((i: any) => i._id) || []);
+  };
   const loadCart = async () => {
     try {
       setLoading(true);
       const data = await getCart();
       setCart(data);
-
+      syncSelectionFromCart(data);
       // 👇 sau khi có cart, load danh sách mã
       try {
         setLoadingAvailableCoupons(true);
@@ -74,6 +78,7 @@ const Cart = () => {
     try {
       const updated = await updateCartItem(itemId, quantity);
       setCart(updated);
+      syncSelectionFromCart(updated);
       try {
         setLoadingAvailableCoupons(true);
         const coupons = await getAvailableCoupons(updated.subtotal);
@@ -92,6 +97,7 @@ const Cart = () => {
     try {
       const updated = await removeCartItem(itemId);
       setCart(updated);
+      syncSelectionFromCart(updated);
     } catch (err: any) {
       toast.error(err.message || "Không xóa được sản phẩm");
     }
@@ -138,17 +144,17 @@ const Cart = () => {
 
   useEffect(() => {
     if (!cart) return;
-  
+
     try {
       const stored = localStorage.getItem("pendingCoupon");
       if (!stored) return;
-  
+
       const parsed = JSON.parse(stored);
       const code: string = parsed?.code || "";
-  
+
       // dọn key luôn để tránh auto-apply lại lần sau
       localStorage.removeItem("pendingCoupon");
-  
+
       if (code) {
         // tự động áp mã này
         handleApplyCoupon(code);
@@ -157,7 +163,7 @@ const Cart = () => {
       localStorage.removeItem("pendingCoupon");
     }
   }, [cart]);
-  
+
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
     setDiscountAmount(0);
@@ -166,6 +172,33 @@ const Cart = () => {
       localStorage.removeItem("appliedCoupon");
     } catch { }
   };
+  const removeAllItems = async () => {
+    if (!cart?.items?.length) return;
+
+    const ok = window.confirm(
+      "Bạn có chắc chắn muốn xóa toàn bộ sản phẩm khỏi giỏ hàng?"
+    );
+    if (!ok) return;
+
+    try {
+      const data = await clearCart();
+      setCart(data);
+      syncSelectionFromCart(data);
+      setAppliedCoupon(null);
+      setDiscountAmount(0);
+      setCouponCode("");
+      try {
+        localStorage.removeItem("appliedCoupon");
+      } catch { }
+
+      toast.success("Đã xóa toàn bộ sản phẩm trong giỏ hàng");
+    } catch (err: any) {
+      toast.error(err.message || "Không xóa được giỏ hàng");
+    }
+  };
+  const allSelected =
+    cart?.items && cart.items.length > 0 &&
+    selectedIds.length === cart.items.length;
 
   if (loading)
     return (
@@ -271,9 +304,19 @@ const Cart = () => {
               <CardHeader className="flex flex-row items-center gap-3 border-b bg-slate-50/80 py-3">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-                  defaultChecked
+                  className="mt-2 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                  checked={allSelected}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      // chọn tất cả
+                      setSelectedIds(cart.items.map((i: any) => i._id));
+                    } else {
+                      // bỏ chọn tất cả
+                      setSelectedIds([]);
+                    }
+                  }}
                 />
+
                 <div className="flex flex-1 flex-col gap-0.5 text-sm">
                   <span className="font-semibold text-slate-800">
                     {cart.storeName || "Cửa hàng của bạn"}
@@ -282,10 +325,14 @@ const Cart = () => {
                     Chọn để áp dụng thao tác cho toàn bộ sản phẩm
                   </span>
                 </div>
-                <button className="text-xs text-primary hover:underline">
+                <button
+                  className="text-xs text-primary hover:underline"
+                  onClick={removeAllItems}
+                >
                   Xóa tất cả
                 </button>
               </CardHeader>
+
 
               {/* Dòng khuyến mại combo như ảnh */}
               <div className="flex items-center gap-2 border-b bg-amber-50 px-4 py-2 text-[11px] text-amber-800">
@@ -298,6 +345,7 @@ const Cart = () => {
               {/* Các item trong giỏ */}
               <CardContent className="space-y-3 bg-white p-4">
                 {cart.items.map((item: any) => {
+                  const isItemSelected = selectedIds.includes(item._id);
                   const image =
                     item.productId.thumbnail
                       ? BASE_ORIGIN + item.productId.thumbnail
@@ -367,8 +415,18 @@ const Cart = () => {
                           <input
                             type="checkbox"
                             className="mt-2 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-                            defaultChecked
+                            checked={isItemSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedIds((prev) =>
+                                  prev.includes(item._id) ? prev : [...prev, item._id]
+                                );
+                              } else {
+                                setSelectedIds((prev) => prev.filter((id) => id !== item._id));
+                              }
+                            }}
                           />
+
                           <div className="relative h-20 w-20 overflow-hidden rounded-md border bg-white">
                             <img
                               src={image}

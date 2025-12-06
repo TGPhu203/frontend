@@ -4,7 +4,12 @@
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { adminGetAllOrders, adminUpdateOrderStatus } from "@/api/orderApi";
+import {
+  adminGetAllOrders,
+  adminUpdateOrderStatus,
+  type OrderStatus,
+  type AdminOrdersResult,
+} from "@/api/orderApi";
 import {
   Card,
   CardContent,
@@ -29,14 +34,6 @@ import {
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-
-type OrderStatus =
-  | "pending"
-  | "confirmed"
-  | "processing"
-  | "shipped"
-  | "completed"
-  | "cancelled";
 
 type AdminOrder = {
   _id: string;
@@ -75,7 +72,6 @@ const AdminOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [statusDraft, setStatusDraft] = useState<OrderStatus>("pending");
   const [savingStatus, setSavingStatus] = useState(false);
-
   const load = async () => {
     try {
       setLoading(true);
@@ -84,10 +80,9 @@ const AdminOrders = () => {
         limit: 20,
         status: statusFilter || undefined,
       });
-
-      // tuỳ vào adminGetAllOrders trả gì – giả sử: { orders, pages }
-      setOrders(d.orders || []);
-      setTotalPages(d.pages || 1);
+  
+      setOrders(d.orders);      // ✅ mảng
+      setTotalPages(d.pages);   // ✅ số trang
     } catch (e: any) {
       toast.error(e.message || "Không thể tải danh sách đơn hàng");
       setOrders([]);
@@ -95,14 +90,15 @@ const AdminOrders = () => {
       setLoading(false);
     }
   };
-
+  
   useEffect(() => {
     load();
   }, [page, statusFilter]);
 
+  // đổi trạng thái nhanh
   const changeStatusQuick = async (id: string, newStatus: OrderStatus) => {
     try {
-      await adminUpdateOrderStatus(id, { status: newStatus });
+      await adminUpdateOrderStatus(id, newStatus); // ✅ truyền string status
       toast.success("Cập nhật trạng thái thành công");
       load();
     } catch (e: any) {
@@ -116,16 +112,14 @@ const AdminOrders = () => {
     setDetailOpen(true);
   };
 
+  // lưu trạng thái từ dialog
   const saveStatusFromDialog = async () => {
     if (!selectedOrder) return;
     try {
       setSavingStatus(true);
-      await adminUpdateOrderStatus(selectedOrder._id, {
-        status: statusDraft,
-      });
+      await adminUpdateOrderStatus(selectedOrder._id, statusDraft); // ✅
       toast.success("Cập nhật trạng thái đơn hàng thành công");
 
-      // cập nhật ngay trên UI
       setOrders((prev) =>
         prev.map((o) =>
           o._id === selectedOrder._id ? { ...o, status: statusDraft } : o

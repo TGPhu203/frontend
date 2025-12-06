@@ -1,17 +1,22 @@
+// src/pages/ProductReviews.tsx
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Star, ThumbsUp, ThumbsDown } from "lucide-react";
 import { toast } from "sonner";
+import { BASE_API } from "@/api/Api";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+
+const BASE_REVIEW = `${BASE_API}/reviews`;
 
 type ReviewUser = {
   _id: string;
@@ -26,305 +31,358 @@ type Review = {
   userId: ReviewUser;
   rating: number;
   title?: string;
-  content: string;
+  content?: string;
   images?: string[];
-  likes: number;
-  dislikes: number;
-  isVerified: boolean;
+  isVerified?: boolean;
+  likes?: number;
+  dislikes?: number;
   createdAt: string;
 };
 
-type ProductReviewsProps = {
-  productId: string;
+type RatingCounts = {
+  [key: number]: number;
 };
 
-const API_BASE = "http://localhost:8888/api";
+type ReviewListResponse = {
+  total: number;
+  pages: number;
+  currentPage: number;
+  reviews: Review[];
+  averageRating?: number;
+  ratingCounts?: RatingCounts;
+};
 
-export default function ProductReviews({ productId }: ProductReviewsProps) {
+export default function ProductReviews({ productId }: { productId: string }) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
-  const [sort, setSort] = useState<"newest" | "highest_rating" | "lowest_rating">(
-    "newest"
-  );
-  const [ratingFilter, setRatingFilter] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
 
-  const fetchReviews = async () => {
-    setLoading(true);
+  const [avgRating, setAvgRating] = useState(0);
+  const [ratingCounts, setRatingCounts] = useState<RatingCounts>({
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+  });
+
+  // null = tất cả; 1–5 = lọc theo sao
+  const [filterRating, setFilterRating] = useState<number | null>(null);
+
+  const fetchReviews = async (
+    pageParam = 1,
+    ratingFilter: number | null = filterRating
+  ) => {
+    if (!productId) return;
+
     try {
-      const params = new URLSearchParams();
-      params.append("page", String(page));
-      params.append("limit", "10");
-      params.append("sort", sort);
-      if (ratingFilter) params.append("rating", String(ratingFilter));
+      setLoading(true);
 
-      const res = await fetch(
-        `${API_BASE}/reviews/product/${productId}?${params.toString()}`,
-        { credentials: "include" }
-      );
+      const params = new URLSearchParams({
+        page: String(pageParam),
+        limit: "5",
+        sort: "newest",
+      });
 
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json.message || "Không thể tải đánh giá");
+      if (ratingFilter) {
+        params.append("rating", String(ratingFilter));
       }
 
-      const data = json.data;
+      const res = await fetch(
+        `${BASE_REVIEW}/product/${productId}?${params.toString()}`,
+        { credentials: "include" }
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Không tải được đánh giá");
+
+      const data: ReviewListResponse = json.data;
       setReviews(data.reviews || []);
       setTotal(data.total || 0);
       setPages(data.pages || 1);
+      setPage(data.currentPage || pageParam);
+
+      // thống kê chung
+      const avg =
+        typeof data.averageRating === "number" && !Number.isNaN(data.averageRating)
+          ? data.averageRating
+          : 0;
+      setAvgRating(avg);
+
+      if (data.ratingCounts) {
+        setRatingCounts({
+          1: data.ratingCounts[1] || 0,
+          2: data.ratingCounts[2] || 0,
+          3: data.ratingCounts[3] || 0,
+          4: data.ratingCounts[4] || 0,
+          5: data.ratingCounts[5] || 0,
+        });
+      } else {
+        setRatingCounts({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+      }
     } catch (err: any) {
-      toast.error(err.message || "Lỗi khi tải đánh giá");
-      setReviews([]);
-      setTotal(0);
-      setPages(1);
+      toast.error(err.message || "Không tải được đánh giá sản phẩm");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchReviews();
+    fetchReviews(1, filterRating);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, sort, ratingFilter, productId]);
+  }, [productId, filterRating]);
 
   const handleHelpful = async (reviewId: string, helpful: boolean) => {
     try {
-      const res = await fetch(`${API_BASE}/reviews/${reviewId}/helpful`, {
+      const res = await fetch(`${BASE_REVIEW}/${reviewId}/helpful`, {
         method: "PUT",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ helpful }),
       });
       const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.message || "Không thể gửi đánh giá hữu ích");
-      }
+      if (!res.ok) throw new Error(json.message || "Không xử lý được yêu cầu");
 
       const { likes, dislikes } = json.data;
       setReviews((prev) =>
-        prev.map((r) => (r._id === reviewId ? { ...r, likes, dislikes } : r))
+        prev.map((r) =>
+          r._id === reviewId ? { ...r, likes, dislikes } : r
+        )
       );
     } catch (err: any) {
-      toast.error(err.message || "Lỗi khi đánh dấu hữu ích");
+      toast.error(err.message || "Không đánh dấu được đánh giá");
     }
   };
 
-  // Chỉ lấy các review đã thực sự đánh giá (có sao và có nội dung)
-  const visibleReviews = reviews.filter((r) => {
-    const hasRating = typeof r.rating === "number" && r.rating > 0;
-    const hasContent = r.content && r.content.trim().length > 0;
-    return hasRating && hasContent;
-  });
+  const renderStars = (value: number, size = 14) => (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: 5 }).map((_, idx) => {
+        const v = idx + 1;
+        const filled = v <= value;
+        return (
+          <Star
+            key={idx}
+            className={filled ? "fill-yellow-400 text-yellow-400" : "text-slate-300"}
+            style={{ width: size, height: size }}
+          />
+        );
+      })}
+    </div>
+  );
 
-  const avgRating =
-    visibleReviews.length > 0
-      ? visibleReviews.reduce((sum, r) => sum + r.rating, 0) /
-        visibleReviews.length
-      : 0;
+  const avgDisplay = avgRating ? avgRating.toFixed(1) : "0.0";
+  const totalAll =
+    ratingCounts[1] +
+    ratingCounts[2] +
+    ratingCounts[3] +
+    ratingCounts[4] +
+    ratingCounts[5];
 
-  const renderStars = (value: number, size: "lg" | "sm" = "sm") =>
-    Array.from({ length: 5 }).map((_, i) => (
-      <Star
-        key={i}
-        className={
-          size === "lg"
-            ? `h-5 w-5 ${
-                i < Math.round(value)
-                  ? "fill-yellow-400 text-yellow-400"
-                  : "text-muted-foreground"
-              }`
-            : `h-4 w-4 ${
-                i < value
-                  ? "fill-yellow-400 text-yellow-400"
-                  : "text-muted-foreground"
-              }`
-        }
+  const handleChangeFilter = (value: string) => {
+    if (value === "all") {
+      setFilterRating(null);
+    } else {
+      setFilterRating(Number(value));
+    }
+  };
+  // src/pages/ProductReviews.tsx
+
+  const renderMedia = (url: string) => {
+    const lower = url.toLowerCase();
+    const isVideo = [".mp4", ".webm", ".ogg", ".mov", ".avi", ".wmv"].some((ext) =>
+      lower.endsWith(ext)
+    );
+
+    if (isVideo) {
+      return (
+        <video
+          key={url}
+          src={url}
+          controls
+          className="h-24 w-32 rounded border object-cover"
+        />
+      );
+    }
+
+    return (
+      <img
+        key={url}
+        src={url}
+        alt="media"
+        className="h-24 w-24 rounded border object-cover"
       />
-    ));
+    );
+  };
 
   return (
-    <div className="space-y-6 mt-10">
-      {/* Tổng quan rating + bộ lọc (KHÔNG còn form gửi đánh giá) */}
-      <Card className="border-border/70 bg-card/80 p-4 md:p-6 rounded-xl shadow-sm">
-        <div className="space-y-3">
-          <p className="text-xs font-medium uppercase tracking-[0.12em] text-primary/80">
-            Đánh giá & nhận xét
-          </p>
+    <div className="space-y-4">
+      {/* Header + thống kê + dropdown filter */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-base font-semibold">Đánh giá sản phẩm</h2>
 
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-semibold">
-                  {avgRating.toFixed(1)}
-                </span>
-                <span className="text-sm text-muted-foreground">/5</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1">
-                  {renderStars(avgRating, "lg")}
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  Dựa trên {visibleReviews.length} đánh giá
-                </span>
-              </div>
+          <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-semibold text-slate-900">
+                {avgDisplay}
+              </span>
+              <span className="text-[11px] text-muted-foreground">/5</span>
             </div>
-
-            {/* Bộ lọc nhỏ */}
-            <div className="flex flex-wrap gap-2 pt-2">
-              <Select value={sort} onValueChange={(v: any) => setSort(v)}>
-                <SelectTrigger className="w-40 h-9 text-xs">
-                  <SelectValue placeholder="Sắp xếp" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Mới nhất</SelectItem>
-                  <SelectItem value="highest_rating">Điểm cao nhất</SelectItem>
-                  <SelectItem value="lowest_rating">Điểm thấp nhất</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={ratingFilter ? String(ratingFilter) : "all"}
-                onValueChange={(v) =>
-                  setRatingFilter(v === "all" ? null : Number(v))
-                }
-              >
-                <SelectTrigger className="w-32 h-9 text-xs">
-                  <SelectValue placeholder="Lọc điểm" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
-                  <SelectItem value="5">5 sao</SelectItem>
-                  <SelectItem value="4">4 sao</SelectItem>
-                  <SelectItem value="3">3 sao</SelectItem>
-                  <SelectItem value="2">2 sao</SelectItem>
-                  <SelectItem value="1">1 sao</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="mt-1 flex items-center gap-2">
+              {renderStars(Math.round(avgRating), 14)}
+              <span className="text-[11px] text-muted-foreground">
+                {totalAll} đánh giá
+              </span>
             </div>
           </div>
         </div>
-      </Card>
 
-      {/* Danh sách review (chỉ render visibleReviews) */}
-      <Card className="border-border/70 bg-card/80 p-4 md:p-6 rounded-xl shadow-sm">
-        {loading ? (
-          <div className="text-sm text-muted-foreground">
-            Đang tải đánh giá...
-          </div>
-        ) : visibleReviews.length === 0 ? (
-          <div className="text-sm text-muted-foreground">
-            Chưa có đánh giá nào cho sản phẩm này.
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {visibleReviews.map((r) => {
-              const fullName =
-                `${r.userId?.firstName || ""} ${
-                  r.userId?.lastName || ""
-                }`.trim() || "Người dùng ẩn danh";
-              const created = new Date(r.createdAt).toLocaleString("vi-VN");
-              const initials = fullName
-                .split(" ")
-                .filter(Boolean)
-                .slice(-2)
-                .map((s) => s[0]?.toUpperCase())
-                .join("");
+        {/* Dropdown lọc số sao */}
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground">Lọc theo số sao:</span>
+          <Select
+            value={filterRating === null ? "all" : String(filterRating)}
+            onValueChange={handleChangeFilter}
+          >
+            <SelectTrigger className="h-8 w-40 text-xs">
+              <SelectValue placeholder="Tất cả đánh giá" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                Tất cả ({totalAll})
+              </SelectItem>
+              {[5, 4, 3, 2, 1].map((stars) => (
+                <SelectItem key={stars} value={String(stars)}>
+                  {stars} sao ({ratingCounts[stars] || 0})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-              return (
-                <div
-                  key={r._id}
-                  className="border-b border-border/60 pb-4 last:border-b-0 last:pb-0"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+      {loading && (
+        <p className="text-xs text-muted-foreground">Đang tải đánh giá...</p>
+      )}
+
+      {!loading && reviews.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Chưa có đánh giá nào cho sản phẩm này.
+        </p>
+      )}
+
+      {!loading &&
+        reviews.map((r) => {
+          const fullName =
+            (r.userId?.firstName || "") +
+            (r.userId?.lastName ? ` ${r.userId.lastName}` : "");
+          const initials =
+            (r.userId?.firstName?.[0] || "") +
+            (r.userId?.lastName?.[0] || "");
+
+          return (
+            <Card
+              key={r._id}
+              className="border border-slate-200/80 bg-white shadow-none"
+            >
+              <CardContent className="p-3 md:p-4 text-sm">
+                <div className="flex gap-3">
+                  <Avatar className="h-9 w-9">
+                    {r.userId?.avatar && (
+                      <AvatarImage src={r.userId.avatar} alt={fullName} />
+                    )}
+                    <AvatarFallback className="text-xs">
                       {initials || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium">
+                          {fullName || "Người dùng"}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          {renderStars(r.rating)}
+                          {r.isVerified && (
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                              Đã mua tại cửa hàng
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">
+                        {new Date(r.createdAt).toLocaleDateString("vi-VN")}
+                      </span>
                     </div>
 
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold text-sm">{fullName}</span>
-                        {r.isVerified && (
-                          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-                            Đã mua hàng
-                          </span>
-                        )}
+                    {r.title && (
+                      <p className="text-sm font-semibold">{r.title}</p>
+                    )}
+                    {r.content && (
+                      <p className="text-sm text-slate-700">{r.content}</p>
+                    )}
+                    {r.images && r.images.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {r.images.map((url) => renderMedia(url))}
                       </div>
-
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <div className="flex items-center gap-0.5">
-                          {renderStars(r.rating)}
-                        </div>
-                        <span className="text-[11px] text-muted-foreground">
-                          {created}
+                    )}
+                    <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:text-emerald-600"
+                        onClick={() => handleHelpful(r._id, true)}
+                      >
+                        <ThumbsUp className="h-3.5 w-3.5" />
+                        <span>Hữu ích</span>
+                        <span className="text-[10px] text-slate-500">
+                          {r.likes || 0}
                         </span>
-                      </div>
+                      </button>
 
-                      {r.title && (
-                        <p className="mt-2 text-sm font-medium">{r.title}</p>
-                      )}
-
-                      <p className="mt-1 text-sm text-card-foreground leading-relaxed">
-                        {r.content}
-                      </p>
-
-                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                        <span>Đánh giá này có hữu ích không?</span>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 rounded-full border border-transparent px-2 py-1 hover:border-border hover:text-foreground"
-                          onClick={() => handleHelpful(r._id, true)}
-                        >
-                          <ThumbsUp className="h-3.5 w-3.5" />
-                          <span>Hữu ích ({r.likes})</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 rounded-full border border-transparent px-2 py-1 hover:border-border hover:text-foreground"
-                          onClick={() => handleHelpful(r._id, false)}
-                        >
-                          <ThumbsDown className="h-3.5 w-3.5" />
-                          <span>Không hữu ích ({r.dislikes})</span>
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:text-red-500"
+                        onClick={() => handleHelpful(r._id, false)}
+                      >
+                        <ThumbsDown className="h-3.5 w-3.5" />
+                        <span>Không hữu ích</span>
+                        <span className="text-[10px] text-slate-500">
+                          {r.dislikes || 0}
+                        </span>
+                      </button>
                     </div>
                   </div>
                 </div>
-              );
-            })}
+              </CardContent>
+            </Card>
+          );
+        })}
 
-            {pages > 1 && (
-              <div className="mt-2 flex items-center justify-between border-t border-border/60 pt-4">
-                <span className="text-[11px] text-muted-foreground">
-                  Trang {page} / {pages}
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-3 text-xs"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    Trước
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-3 text-xs"
-                    disabled={page >= pages}
-                    onClick={() => setPage((p) => Math.min(pages, p + 1))}
-                  >
-                    Sau
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Card>
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-2 text-xs">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1 || loading}
+            onClick={() => fetchReviews(page - 1)}
+          >
+            Trang trước
+          </Button>
+          <span className="text-muted-foreground">
+            Trang {page}/{pages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= pages || loading}
+            onClick={() => fetchReviews(page + 1)}
+          >
+            Trang sau
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

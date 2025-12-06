@@ -48,6 +48,7 @@ import {
   ShoppingBag,
   DollarSign,
   TrendingUp,
+  Download,           // ⬅ thêm icon
 } from "lucide-react";
 
 const API_BASE_URL =
@@ -128,7 +129,6 @@ const AdminRevenueStats = () => {
         params.to = to;
       }
 
-
       const res = await axios.get(
         `${API_BASE_URL}/api/admin/stats/revenue/${m}`,
         {
@@ -164,10 +164,29 @@ const AdminRevenueStats = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
-
   const handleApplyFilter = () => {
     loadRevenue(mode);
   };
+
+  // ⬇⬇⬇ THÊM HÀM EXPORT BÁO CÁO
+  const handleExport = () => {
+    try {
+      const params = new URLSearchParams();
+      params.set("type", mode); // daily | monthly | yearly
+
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+
+      const url = `${API_BASE_URL}/api/admin/stats/revenue/export?${params.toString()}`;
+
+      // dùng window.open để trình duyệt tải file CSV
+      window.open(url, "_blank");
+    } catch (error) {
+      console.error("Export revenue error:", error);
+      toast.error("Không thể xuất báo cáo doanh thu");
+    }
+  };
+  // ⬆⬆⬆ HẾT PHẦN MỚI
 
   const avgOrderValue =
     currentData && currentData.summary.totalOrders > 0
@@ -234,9 +253,23 @@ const AdminRevenueStats = () => {
                 className="w-[150px]"
               />
             </div>
-            <Button onClick={handleApplyFilter} disabled={loading}>
-              {loading ? "Đang tải..." : "Áp dụng"}
-            </Button>
+
+            <div className="flex items-center gap-2">
+              <Button onClick={handleApplyFilter} disabled={loading}>
+                {loading ? "Đang tải..." : "Áp dụng"}
+              </Button>
+
+              {/* ⬇ NÚT XUẤT BÁO CÁO */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleExport}
+                disabled={loading}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Xuất báo cáo
+              </Button>
+            </div>
           </div>
         </div>
 

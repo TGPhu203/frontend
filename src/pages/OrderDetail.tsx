@@ -6,7 +6,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
-import { getOrderById, cancelOrder } from "@/api/orderApi";
+import { getOrderById, cancelOrder, confirmOrderReceived } from "@/api/orderApi";
 import { BASE_ORIGIN } from "@/api/Api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -127,7 +127,7 @@ const STATUS_LABELS: Record<string, string> = {
   pending: "Chờ xác nhận",
   confirmed: "Đã xác nhận",
   processing: "Đang xử lý",
-  shipping: "Đang giao hàng",
+  shipped: "Đang giao hàng",
   completed: "Hoàn thành",
   cancelled: "Đã hủy",
   failed: "Thanh toán thất bại",
@@ -152,7 +152,7 @@ const getStatusVariant = (
   switch (status) {
     case "completed":
       return "default";
-    case "shipping":
+    case "shipped":
     case "processing":
     case "confirmed":
     case "pending":
@@ -224,6 +224,25 @@ const OrderDetail = () => {
     }
   };
 
+  const handleConfirmReceived = async () => {
+    if (!id) return;
+    try {
+      const updatedOrder = await confirmOrderReceived(id);
+      toast.success("Cảm ơn bạn đã xác nhận đã nhận hàng. Đơn hàng đã hoàn thành.");
+      load();
+      setOrder((prev) => ({
+        ...(prev || {}),
+        ...(updatedOrder || {}),
+      }));
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.message ||
+        "Xác nhận đã nhận hàng thất bại, vui lòng thử lại.";
+      toast.error(msg);
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -268,6 +287,8 @@ const OrderDetail = () => {
     (PAYMENT_STATUS_LABELS[order.paymentStatus] ?? order.paymentStatus);
 
   const canCancel = ["pending", "confirmed"].includes(order.status);
+  const canConfirmReceived =
+    order.status === "processing" || order.status === "shipped";
 
   const canPayByStripe =
     order.paymentMethod === "stripe" &&
@@ -337,6 +358,16 @@ const OrderDetail = () => {
                   onClick={handleCancel}
                 >
                   Hủy đơn hàng
+                </Button>
+              )}
+
+              {canConfirmReceived && (
+                <Button
+                  variant="outline"
+                  className="mt-1 w-full md:w-auto"
+                  onClick={handleConfirmReceived}
+                >
+                  Đã nhận được hàng
                 </Button>
               )}
             </div>

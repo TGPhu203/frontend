@@ -51,3 +51,14 @@ export const removeCartItem = async (id: string) => {
 
   return json.data; // CHUẨN
 };
+export const clearCart = async () => {
+  const res = await fetch(BASE, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message);
+
+  return json.data; // chính là data của getCart
+};

@@ -43,26 +43,34 @@ const Auth = () => {
         throw new Error("Không nhận được thông tin người dùng");
       }
   
-      // ⚠️ Nếu tài khoản bị khóa thì không cho đăng nhập
+      // Nếu tài khoản bị khóa thì không cho đăng nhập
       if (user.isBlocked) {
         toast.error("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ hỗ trợ.");
         setIsLoading(false);
         return;
       }
   
-      // Lưu toàn bộ user + token để chỗ khác dùng (Cart, Header,...)
+      // Lưu user + token
       localStorage.setItem(
         "user",
         JSON.stringify({
-          ...user, // id, email, firstName, lastName, fullName, avatar, loyaltyTier,...
-          token, // thêm token để call API nếu cần
+          ...user,
+          token,
         })
       );
   
       toast.success("Đăng nhập thành công");
   
-      if (user.role === "admin") navigate("/admin");
-      else navigate("/");
+      // ✅ admin, manager, support -> vào admin
+      if (["admin", "manager", "support"].includes(user.role)) {
+        navigate("/admin");
+        // hoặc nếu muốn CSKH vào thẳng trang riêng:
+        // if (user.role === "support") navigate("/admin/support-staff");
+        // else navigate("/admin");
+      } else {
+        // khách hàng bình thường
+        navigate("/");
+      }
     } catch (error: any) {
       toast.error(error.message || "Đăng nhập thất bại");
     } finally {

@@ -32,7 +32,11 @@ import {
 import { toast } from "sonner";
 import { RefreshCw, Search } from "lucide-react";
 
-import { adminGetAllOrders, adminUpdateOrderStatus } from "@/api/orderApi";
+import {
+  adminGetAllOrders,
+  adminUpdateOrderStatus,
+  type OrderStatus,
+} from "@/api/orderApi";
 
 const AdminCart = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -42,14 +46,15 @@ const AdminCart = () => {
   // dialog
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
-  const [statusValue, setStatusValue] = useState<string>("");
+  const [statusValue, setStatusValue] = useState<OrderStatus | "">("");
   const [savingStatus, setSavingStatus] = useState(false);
 
   const load = async () => {
     try {
       setLoading(true);
-      const list = await adminGetAllOrders({ page: 1, limit: 50 });
-      setOrders(list || []);
+      // ✅ adminGetAllOrders trả về object { orders, total, pages, currentPage }
+      const { orders } = await adminGetAllOrders({ page: 1, limit: 50 });
+      setOrders(orders || []);
     } catch (e: any) {
       toast.error(e?.message || "Lỗi khi tải danh sách đơn hàng");
       setOrders([]);
@@ -149,7 +154,8 @@ const AdminCart = () => {
   // mở dialog xem chi tiết + chuẩn bị value trạng thái
   const handleOpenDetail = (order: any) => {
     setSelectedOrder(order);
-    setStatusValue(order.status || "");
+    // nếu order.status không khớp union thì cast tạm, hoặc để ""
+    setStatusValue((order.status as OrderStatus) || "");
     setDetailOpen(true);
   };
 
@@ -162,12 +168,12 @@ const AdminCart = () => {
 
     try {
       setSavingStatus(true);
+      // ✅ truyền đúng kiểu literal union
       const updated = await adminUpdateOrderStatus(
         selectedOrder._id,
-        statusValue
+        statusValue as OrderStatus
       );
 
-      // cập nhật vào list orders
       setOrders((prev) =>
         prev.map((o) => (o._id === updated._id ? { ...o, ...updated } : o))
       );
@@ -427,12 +433,14 @@ const AdminCart = () => {
                     <select
                       className="w-full rounded-md border px-2 py-1.5 text-sm bg-background"
                       value={statusValue}
-                      onChange={(e) => setStatusValue(e.target.value)}
+                      onChange={(e) =>
+                        setStatusValue(e.target.value as OrderStatus | "")
+                      }
                     >
                       <option value="">Chọn trạng thái...</option>
                       <option value="pending">Chờ xử lý</option>
                       <option value="processing">Đang xử lý</option>
-                      <option value="delivered">Đã giao</option>
+                      <option value="shipped">Đang giao</option>
                       <option value="completed">Hoàn thành</option>
                       <option value="cancelled">Đã hủy</option>
                     </select>

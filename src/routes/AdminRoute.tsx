@@ -22,11 +22,15 @@ interface AdminRouteProps {
 const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
   const user = getUser();
 
+  // Chưa đăng nhập -> về trang auth
   if (!user || !user.token) {
     return <Navigate to="/auth" replace />;
   }
 
-  if (user.role !== "admin") {
+  // Chỉ cho admin / manager / support vào khu admin
+  const allowedRoles = ["admin", "manager", "support"];
+
+  if (!allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
 

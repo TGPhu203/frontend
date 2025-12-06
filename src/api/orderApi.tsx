@@ -1,5 +1,6 @@
 // src/api/orderApi.ts
 import { BASE_ORIGIN } from "./Api";
+
 const BASE = `${BASE_ORIGIN}/api/orders`;
 // 👇 dùng group admin ở order.routes.js
 // GET:  /api/orders/admin/all
@@ -58,54 +59,73 @@ export const repayOrder = async (id: string) => {
 };
 
 /* ========== ADMIN ========= */
+export type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "processing"
+  | "shipped"
+  | "completed"
+  | "cancelled";
 
-export const adminGetAllOrders = async (q: {
+export type AdminOrdersQuery = {
   page?: number;
   limit?: number;
   status?: string;
   search?: string;
-}) => {
-  const params = new URLSearchParams();
-  if (q.page) params.append("page", String(q.page));
-  if (q.limit) params.append("limit", String(q.limit));
-  if (q.status) params.append("status", q.status);
-  if (q.search) params.append("search", q.search);
+};
 
-  const res = await fetch(
-    `${ADMIN_ORDERS_BASE}/all?${params.toString()}`,
-    {
+export type AdminOrdersResult = {
+  orders: any[];
+  total: number;
+  pages: number;
+  currentPage: number;
+};
+  export const adminGetAllOrders = async (
+    q: AdminOrdersQuery
+  ): Promise<AdminOrdersResult> => {
+    const params = new URLSearchParams();
+    if (q.page) params.append("page", String(q.page));
+    if (q.limit) params.append("limit", String(q.limit));
+    if (q.status) params.append("status", q.status);
+    if (q.search) params.append("search", q.search);
+  
+    const res = await fetch(`${ADMIN_ORDERS_BASE}/all?${params.toString()}`, {
       credentials: "include",
+    });
+  
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || "Không thể tải đơn hàng");
+  
+    const data = json.data || {};
+  
+    return {
+      orders: Array.isArray(data.orders) ? data.orders : [],
+      total: typeof data.total === "number" ? data.total : 0,
+      pages: typeof data.pages === "number" ? data.pages : 1,
+      currentPage:
+        typeof data.currentPage === "number"
+          ? data.currentPage
+          : q.page ?? 1,
+    };
+  };
+  
+  export const adminUpdateOrderStatus = async (
+    id: string,
+    status: OrderStatus
+  ) => {
+    const res = await fetch(`${ADMIN_ORDERS_BASE}/${id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ status }),
+    });
+  
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || "Không thể cập nhật trạng thái đơn hàng");
     }
-  );
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message || "Không thể tải đơn hàng");
-
-  // backend chuẩn: { status, data: { orders, total, pages, currentPage } }
-  const data = json.data;
-
-  if (data?.orders && Array.isArray(data.orders)) return data.orders;
-
-  // các fallback khác nếu sau này có thay đổi response
-  if (Array.isArray(json)) return json;
-  if (Array.isArray(data)) return data;
-  if (data?.items && Array.isArray(data.items)) return data.items;
-
-  return [];
-};
-export const adminUpdateOrderStatus = async (id: string, status: string) => {
-  const res = await fetch(`${ADMIN_ORDERS_BASE}/${id}/status`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ status }),
-  });
-
-  const json = await res.json();
-  if (!res.ok) {
-    throw new Error(json.message || "Không thể cập nhật trạng thái đơn hàng");
-  }
-  return json.data ?? json;
-};
+    return json.data ?? json;
+  };
 
 /* ========== PAYMENT ========= */
 
@@ -132,5 +152,17 @@ export const createMomoPayment = async (orderId: string) => {
   const json = await res.json();
   if (!res.ok)
     throw new Error(json.message || "Không thể tạo thanh toán MOMO");
+  return json.data;
+};
+export const confirmOrderReceived = async (id: string) => {
+  const res = await fetch(`${BASE}/${id}/received`, {
+    method: "PUT",                  // khớp route: router.put("/:id/received", ...)
+    credentials: "include",
+  });
+  const json = await res.json();
+  if (!res.ok)
+    throw new Error(
+      json.message || "Không thể xác nhận đã nhận được hàng"
+    );
   return json.data;
 };

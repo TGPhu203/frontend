@@ -19,7 +19,7 @@ const MENU_ITEMS: MenuItemConfig[] = [
     { to: "/my-orders", label: "Quản lý đơn hàng", icon: ClipboardList },
     { to: "/wishlist", label: "Sản phẩm yêu thích", icon: Heart },
     { to: "/address", label: "Sổ địa chỉ", icon: MapPin },
-    { to: "/notifications", label: "Thông báo", icon: Bell },
+    { to: "/my-reviews", label: "Đánh giá", icon: Bell },
     { to: "/promotions", label: "Ưu đãi & Cập nhật", icon: Gift },
     { to: "/orders/:id", label: "Đơn hàng", icon: PackageSearch },
 ];

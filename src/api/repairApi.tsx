@@ -27,3 +27,32 @@ export async function createRepairRequest(payload: CreateRepairRequestPayload) {
   }
   return json.data;
 }
+
+// 🟣 Lấy lịch sử yêu cầu sửa chữa của user đã đăng nhập
+export type RepairHistoryItem = {
+  _id: string;
+  customerName: string;
+  phone: string;
+  email?: string;
+  productName: string;
+  imei?: string;
+  status: "new" | "in_progress" | "completed" | "cancelled" | string;
+  issueDescription?: string;
+  adminNotes?: string;
+  createdAt: string;
+};
+
+export async function getMyRepairRequests(): Promise<RepairHistoryItem[]> {
+  const res = await fetch(`${BASE}/my`, {
+    method: "GET",
+    credentials: "include",
+  });
+
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json.message || "Không thể tải lịch sử bảo hành/sửa chữa");
+  }
+
+  // backend trả { status, data: [...] }
+  return json.data || [];
+}

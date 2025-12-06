@@ -892,6 +892,7 @@ const ProductDetail = () => {
             </Card>
           </div>
         </section>
+
       </main>
 
       <Footer />
