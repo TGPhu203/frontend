@@ -34,22 +34,22 @@ const Auth = () => {
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-  
+
     try {
       // login() trả về { user, token, refreshToken }
       const { user, token } = await login(signinEmail, signinPassword);
-  
+
       if (!user) {
         throw new Error("Không nhận được thông tin người dùng");
       }
-  
+
       // Nếu tài khoản bị khóa thì không cho đăng nhập
       if (user.isBlocked) {
         toast.error("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ hỗ trợ.");
         setIsLoading(false);
         return;
       }
-  
+
       // Lưu user + token
       localStorage.setItem(
         "user",
@@ -58,9 +58,9 @@ const Auth = () => {
           token,
         })
       );
-  
+
       toast.success("Đăng nhập thành công");
-  
+
       // ✅ admin, manager, support -> vào admin
       if (["admin", "manager", "support"].includes(user.role)) {
         navigate("/admin");
@@ -77,37 +77,37 @@ const Auth = () => {
       setIsLoading(false);
     }
   };
-  
-  
+
+
 
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-  
+
     if (signupPassword !== signupConfirm) {
       toast.error("Mật khẩu xác nhận không khớp");
       setIsLoading(false);
       return;
     }
-  
+
     try {
       // Cắt tên, loại bỏ khoảng trắng thừa
       const parts = signupName.trim().split(/\s+/);
-  
+
       let firstName = "";
       let lastName = "";
-  
+
       if (parts.length === 1) {
-        // Nếu chỉ có 1 từ, cho cả firstName và lastName đều = từ đó
         firstName = parts[0];
         lastName = parts[0];
       } else {
-        // Ngược lại: từ đầu là firstName, phần còn lại là lastName
-        [firstName, ...rest] = parts;
-        lastName = rest.join(" ");
+        const [first, ...restParts] = parts;
+        firstName = first;
+        lastName = restParts.join(" ");
       }
-  
+
+
       const data = await register({
         firstName,
         lastName,
@@ -115,7 +115,7 @@ const Auth = () => {
         password: signupPassword,
         // phone: ... nếu sau này có
       });
-  
+
       toast.success("Đăng ký thành công! Kiểm tra email xác thực.");
       navigate("/");
     } catch (error: any) {
@@ -124,7 +124,7 @@ const Auth = () => {
       setIsLoading(false);
     }
   };
-  
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background p-4">
@@ -139,12 +139,17 @@ const Auth = () => {
 
         <Card className="border-border/50 shadow-lg">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 h-12 w-12 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-2xl">T</span>
+            <div className="mx-auto mb-4 h-12 w-12 flex items-center justify-center">
+              <img
+                src="/logo.png" // file nằm ở public/logo.img
+                alt="Trường Phúc"
+                className="h-12 w-12 object-contain"
+              />
             </div>
             <CardTitle className="text-2xl">Trường Phúc</CardTitle>
             <CardDescription>Đăng nhập hoặc tạo tài khoản mới</CardDescription>
           </CardHeader>
+
 
           <CardContent>
             <Tabs defaultValue="signin">
