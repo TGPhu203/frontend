@@ -42,7 +42,7 @@ import EmployeeManagement from "./pages/admin/EmployeeManagement";
 // 👇 THÊM 2 IMPORT MỚI
 import EmployeeAttendance from "./pages/admin/EmployeeAttendance";
 import PayrollManagement from "./pages/admin/PayrollManagement";
-
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -70,6 +70,7 @@ const App = () => (
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/address" element={<AddressBook />} />
             <Route path="/my-reviews" element={<ReviewProductSelectorPage />} />
+            <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
             <Route
               path="/my-reviews/:productId"
               element={<ProductReviewPage />}

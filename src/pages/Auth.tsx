@@ -81,33 +81,42 @@ const Auth = () => {
   
 
 
-
-  /* =====================================================
-     💠 HANDLE REGISTER
-  ====================================================== */
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-
+  
     if (signupPassword !== signupConfirm) {
       toast.error("Mật khẩu xác nhận không khớp");
       setIsLoading(false);
       return;
     }
-
+  
     try {
-      const [firstName, ...rest] = signupName.split(" ");
-      const lastName = rest.join(" ");
-
+      // Cắt tên, loại bỏ khoảng trắng thừa
+      const parts = signupName.trim().split(/\s+/);
+  
+      let firstName = "";
+      let lastName = "";
+  
+      if (parts.length === 1) {
+        // Nếu chỉ có 1 từ, cho cả firstName và lastName đều = từ đó
+        firstName = parts[0];
+        lastName = parts[0];
+      } else {
+        // Ngược lại: từ đầu là firstName, phần còn lại là lastName
+        [firstName, ...rest] = parts;
+        lastName = rest.join(" ");
+      }
+  
       const data = await register({
         firstName,
         lastName,
         email: signupEmail,
         password: signupPassword,
+        // phone: ... nếu sau này có
       });
-
+  
       toast.success("Đăng ký thành công! Kiểm tra email xác thực.");
-
       navigate("/");
     } catch (error: any) {
       toast.error(error.message || "Không thể đăng ký");
@@ -115,6 +124,7 @@ const Auth = () => {
       setIsLoading(false);
     }
   };
+  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background p-4">

@@ -251,7 +251,7 @@ export default function PayrollManagement() {
                                 onValueChange={(val) => setSelectedEmployee(val)}
                             >
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Chọn nhân viên " />
+                                    <SelectValue placeholder="Chọn nhân viên" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {employees
